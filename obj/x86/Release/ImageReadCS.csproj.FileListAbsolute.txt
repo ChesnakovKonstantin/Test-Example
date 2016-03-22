@@ -1,0 +1,10 @@
+C:\Users\HP\Downloads\LoadImageCS_2\bin\Release\ImageReadCS.exe
+C:\Users\HP\Downloads\LoadImageCS_2\bin\Release\ImageReadCS.pdb
+C:\Users\HP\Downloads\LoadImageCS_2\obj\x86\Release\ImageReadCS.csprojResolveAssemblyReference.cache
+C:\Users\HP\Downloads\LoadImageCS_2\obj\x86\Release\ImageReadCS.exe
+C:\Users\HP\Downloads\LoadImageCS_2\obj\x86\Release\ImageReadCS.pdb
+C:\Users\HP\Downloads\chesnakov2\src\bin\Release\ImageReadCS.exe
+C:\Users\HP\Downloads\chesnakov2\src\bin\Release\ImageReadCS.pdb
+C:\Users\HP\Downloads\chesnakov2\src\obj\x86\Release\ImageReadCS.csprojResolveAssemblyReference.cache
+C:\Users\HP\Downloads\chesnakov2\src\obj\x86\Release\ImageReadCS.exe
+C:\Users\HP\Downloads\chesnakov2\src\obj\x86\Release\ImageReadCS.pdb

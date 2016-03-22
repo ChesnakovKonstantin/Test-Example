@@ -1,0 +1,15 @@
+C:\Users\HP\Downloads\LoadImageCS\obj\x86\Debug\ImageReadCS.csprojResolveAssemblyReference.cache
+C:\Users\HP\Downloads\LoadImageCS\bin\Debug\ImageReadCS.exe
+C:\Users\HP\Downloads\LoadImageCS\bin\Debug\ImageReadCS.pdb
+C:\Users\HP\Downloads\LoadImageCS\obj\x86\Debug\ImageReadCS.exe
+C:\Users\HP\Downloads\LoadImageCS\obj\x86\Debug\ImageReadCS.pdb
+C:\Users\HP\Downloads\LoadImageCS_2\obj\x86\Debug\ImageReadCS.exe
+C:\Users\HP\Downloads\LoadImageCS_2\obj\x86\Debug\ImageReadCS.pdb
+C:\Users\HP\Downloads\LoadImageCS_2\bin\Debug\ImageReadCS.exe
+C:\Users\HP\Downloads\LoadImageCS_2\bin\Debug\ImageReadCS.pdb
+C:\Users\HP\Downloads\LoadImageCS_2\obj\x86\Debug\ImageReadCS.csprojResolveAssemblyReference.cache
+C:\Users\HP\Downloads\chesnakov2\src\obj\x86\Debug\ImageReadCS.exe
+C:\Users\HP\Downloads\chesnakov2\src\obj\x86\Debug\ImageReadCS.pdb
+C:\Users\HP\Downloads\chesnakov2\src\bin\Debug\ImageReadCS.exe
+C:\Users\HP\Downloads\chesnakov2\src\bin\Debug\ImageReadCS.pdb
+C:\Users\HP\Downloads\chesnakov2\src\obj\x86\Debug\ImageReadCS.csprojResolveAssemblyReference.cache
