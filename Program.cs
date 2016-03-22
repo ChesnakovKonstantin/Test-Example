@@ -337,6 +337,7 @@ namespace ImageReadCS
 
         }
 
+        //this is right version
         static ColorFloatImage BicubeIntInt2(ColorFloatImage image, int n)
         {
             ColorFloatImage image1 = new ColorFloatImage(image.Width * n, image.Height * n),

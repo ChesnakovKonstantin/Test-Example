@@ -13,3 +13,5 @@ C:\Users\HP\Downloads\chesnakov2\src\obj\x86\Debug\ImageReadCS.pdb
 C:\Users\HP\Downloads\chesnakov2\src\bin\Debug\ImageReadCS.exe
 C:\Users\HP\Downloads\chesnakov2\src\bin\Debug\ImageReadCS.pdb
 C:\Users\HP\Downloads\chesnakov2\src\obj\x86\Debug\ImageReadCS.csprojResolveAssemblyReference.cache
+C:\Users\HP\Documents\GIT_ROOT\Test Example\obj\x86\Debug\ImageReadCS.exe
+C:\Users\HP\Documents\GIT_ROOT\Test Example\obj\x86\Debug\ImageReadCS.pdb
