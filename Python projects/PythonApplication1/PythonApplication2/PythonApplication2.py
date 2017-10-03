@@ -23,17 +23,19 @@ def vector_product(a, b):
    return res
 
 def scalar_product(a, b):
-    res = a[0]*b[0] + a[1]*b[1]+a[2]*b[2]
+    res = 0.0
+    for i in range(len(a)):
+        res += a[i]*b[i]
     return res
 
 def eq_signs(a):
     if (a[0]<0):
         for el in a:
-            if (el>0):
+            if (el>0 or el == 0):
                 return False
     elif (a[0] > 0):
         for el in a:
-            if (el<0):
+            if (el<0 or el == 0):
                 return False
     else:
         return False
@@ -51,6 +53,42 @@ def sign(a):
     elif (a<0):
         return -1
 
+def ZeroSign3D(a):
+    npos = sum(x > 0 for x in a)
+    nneg = sum(x < 0 for x in a)
+    if (npos == 2):
+        return False
+    if (nneg == 2):
+        return True
+
+def signZero(a, pos):
+    if (pos):
+        if (a>=0):
+            return 1
+        elif (a<0):
+            return -1
+    else:
+        if (a>0):
+            return 1
+        elif (a<=0):
+            return -1
+       
+def DiffSigns(a, eps):
+    numnegative = 0
+    numpositive = 0
+    for el in a:
+        if (el > eps):
+            numpositive += 1
+        elif (el < -eps):
+            numnegative += 1
+    return numpositive != 0 and numnegative != 0
+
+def RightOrder2D(Int):
+    if (Int[0]>Int[1]):
+        temp = Int[0]
+        Int[0]=Int[1]
+        Int[1]=temp
+
 def swap(a, b, i, j):
     tempa = a[i]
     tempb = b[i]
@@ -61,14 +99,15 @@ def swap(a, b, i, j):
 
 #rightform: the first and the last vertice make d of the same sign to another plane
 def rightform(a, d):
-    if (sign(d[0]) != sign(d[2])):
-        if (sign(d[0]) == sign(d[1])):
+    pos = ZeroSign3D(d)
+    if (signZero(d[0], pos) != signZero(d[2], pos)):
+        if (signZero(d[0], pos) == signZero(d[1], pos)):
             swap(a, d, 1, 2)
         else:
             swap(a, d, 0, 1)
 
 def IntIntersects(T1, T2):
-    if (T2[0] <= T1[1] and T0[0] <= T1[1]):
+    if (T2[0] <= T1[1] and T1[0] <= T2[1]):
         return True
     else:
         return False
@@ -82,14 +121,41 @@ def PointInTriangle2D(pt, p1, p2, p3, eps):
     b2 = Sign2D(pt, p2, p3) < eps;
     b3 = Sign2D(pt, p3, p1) < eps;
     a = (b1 and b2) or (not b1 and not b2)
-    #return (b1 == b2) and (b2 == b3)
-    return ((b1 and b2) or (not b1 and not b2)) and ((b3 and b2) or (not b3 and not b2))
+    return (b1 == b2) and (b2 == b3)
+    #return ((b1 and b2) or (not b1 and not b2)) and ((b3 and b2) or (not b3 and not b2))
+
+def PointInTriangle2DBar(pt, p1, p2, p3, eps):
+     denominator = ((p3[1] - p1[1])*(p2[0] - p1[0]) - (p3[0] - p1[0])*(p2[1] - p1[1]))
+     if (abs(denominator) < eps):
+         return False
+     else:
+        a = ((p3[1] - p1[1])*(pt[0] - p1[0]) - (p3[0] - p1[0])*(pt[1] - p1[1])) / denominator
+        b = ((pt[1] - p1[1])*(p2[0] - p1[0]) - (pt[0] - p1[0])*(p2[1] - p1[1])) / denominator
+        c = 1 - a - b
+        return 0 - eps <= a and a <= 1 + eps and 0 - eps <= b and b <= 1 + eps and 0 - eps <= c and c <= 1 + eps
+
+def EdgesOfTriangle(p1, p2, p3):
+    edge1 = [p1[1] - p2[1], p2[0]-p1[0], p1[0]*p2[1] - p2[0]*p1[1]]
+    edge2 = [p1[1] - p3[1], p3[0]-p1[0], p1[0]*p3[1] - p3[0]*p1[1]]
+    edge3 = [p3[1] - p2[1], p2[0]-p3[0], p3[0]*p2[1] - p2[0]*p3[1]]
+    return [edge1, edge2, edge3]
 
 def TrianglesIntersect2D(first, second, eps):
-    if (PointInTriangle2D(first[0], second[0], second[1], second[2], eps) or PointInTriangle2D(first[1], second[0], second[1], second[2], eps) or PointInTriangle2D(first[2], second[0], second[1], second[2], eps) or PointInTriangle2D(second[0], first[0], first[1], first[2], eps) or PointInTriangle2D(second[1], first[0], first[1], first[2], eps) or PointInTriangle2D(second[2], first[0], first[1], first[2], eps)):
+    #if (PointInTriangle2D(first[0], second[0], second[1], second[2], eps) or PointInTriangle2D(first[1], second[0], second[1], second[2], eps) or PointInTriangle2D(first[2], second[0], second[1], second[2], eps) or PointInTriangle2D(second[0], first[0], first[1], first[2], eps) or PointInTriangle2D(second[1], first[0], first[1], first[2], eps) or PointInTriangle2D(second[2], first[0], first[1], first[2], eps)):
+    if (PointInTriangle2DBar(first[0], second[0], second[1], second[2], eps) or PointInTriangle2DBar(first[1], second[0], second[1], second[2], eps) or PointInTriangle2DBar(first[2], second[0], second[1], second[2], eps) or PointInTriangle2DBar(second[0], first[0], first[1], first[2], eps) or PointInTriangle2DBar(second[1], first[0], first[1], first[2], eps) or PointInTriangle2DBar(second[2], first[0], first[1], first[2], eps)):
         return True
     else:
-        return False
+        dist = [[0.0 for j in range(3)] for i in range(3)]
+        edges = EdgesOfTriangle(second[0], second[1], second[2])
+        for i in range(3):       
+            for j in range(3):
+                print(i, j)
+                dist[i][j] = edges[i][0]*first[j][0] + edges[i][1]*first[j][1] + edges[i][2]
+        if (DiffSigns(dist[0], eps) or DiffSigns(dist[1], eps) or DiffSigns(dist[2], eps)):
+            return True
+        else:
+             return False
+
 
 
 def Coplanar(first_3D, second_3D, N1, N2, eps):
@@ -178,6 +244,10 @@ def TrianglesIntersect3D(first, second):
         D = vector_product(first_plane[0], second_plane[0])
         rightform(first, d1to2)
         rightform(second, d2to1)
+        p1 = [0.0]*3
+        p2 = [0.0]*3
+        Int1 = [0.0]*2
+        Int2 = [0.0]*2
         #interval on the first triangle
         for i in range(3):
             p1[i] = scalar_product(D, first[i])
@@ -188,12 +258,14 @@ def TrianglesIntersect3D(first, second):
             p2[i] = scalar_product(D, second[i])
         Int2[0] = p2[0] + (p2[1]-p2[0])*(d2to1[0]/(d2to1[0]-d2to1[1]))
         Int2[1] = p2[2] + (p2[1]-p2[2])*(d2to1[2]/(d2to1[2]-d2to1[1]))
+        RightOrder2D(Int1)
+        RightOrder2D(Int2)
         if (IntIntersects(Int1, Int2)):
             return True
         else:
             return False
 
-#first = [[0, 1.5, 2.71828], [1.17, 9.01, 9.08], [4.9, 0.4, 3.4]]
-first = [[-1, 3.6, 3.1415], [9.02, 7.15, 1.7], [6.08, 2.99, 1.56]]
-second = [[-1, 3.6, 3.1415], [9.02, 7.15, 1.7], [6.08, 2.99, 1.56]]
+second = [[0, 0, 0], [2, 0, 0], [0, 2, 0]]
+first = [[0, 1, 1], [1, 0, 1], [0.5, 0.5, -1]]
 print(TrianglesIntersect3D(first, second))
+#print(EdgesOfTriangle([0, 0], [2, 0], [0, 2]))
