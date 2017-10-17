@@ -1,4 +1,7 @@
 import sys
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import matplotlib.pyplot as plt
 
 def add(a, b):
     res = [0.0]*3
@@ -265,7 +268,34 @@ def TrianglesIntersect3D(first, second):
         else:
             return False
 
-second = [[0, 0, 0], [2, 0, 0], [0, 2, 0]]
-first = [[0, 1, 1], [1, 0, 1], [0.5, 0.5, -1]]
-print(TrianglesIntersect3D(first, second))
+def DrawTriangle(first, second, ax):
+    x1 = [first[0][0], first[1][0], first[2][0]]
+    y1 = [first[0][1], first[1][1], first[2][1]]
+    z1 = [first[0][2], first[1][2], first[2][2]]
+    x2 = [second[0][0], second[1][0], second[2][0]]
+    y2 = [second[0][1], second[1][1], second[2][1]]
+    z2 = [second[0][2], second[1][2], second[2][2]]
+    verts1 = [list(zip(x1, y1, z1))]
+    verts2 = [list(zip(x2, y2, z2))]
+    tri1 = Poly3DCollection(verts1)
+    tri1.set_color('r')
+    tri2 = Poly3DCollection(verts2)
+    tri2.set_color('g')
+    ax.add_collection3d(tri1)
+    ax.add_collection3d(tri2)
+
+
+second = [[[0, 0, 0], [0, 5, 0], [6, 5, 0]], [[-1, 0, 0], [0, 2, 0], [0, 0, 0]], [[-1, 0, 0], [0, -1, 0], [0, 0, 0]], [[0, 0, 0], [0, 2, 0], [1, 0, 0]], [[0, 0, 0], [0, 4, 0], [4, 0, 0]], [[0, 0, 0], [0, 4, 0], [4, 0, 0]], [[0, 0, 0], [0, 4, 0], [4, 0, 0]], [[0, 0, 0], [0, 4, 0], [4, 0, 0]], [[0, 0, 0], [0, 4, 0], [5, 0, 0]]]
+first = [[[1, 4, 0], [2, 4, 0], [2, 3, 0]], [[0, 0, 0], [0, 3, 0], [5, 0, 0]], [[0, 0, 0], [5, 0, 0], [0, 4, 0]], [[0, -1, 0], [0, 3, 0], [7, -1, 0]], [[1, 2, 0], [1, 1, -3], [0.5, 2, -2]], [[4, 0, 0], [1, 1, -3], [0.5, 2, -2]], [[1, 2, 0], [2, 1, 0], [0.5, 2, -2]], [[-1, 2, 2], [0, 2, 2], [0, 0, -2]], [[1, 1, 2], [5, 6, -2], [3, 4, -1]]]
+for i in range(9):
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    ax.set_xlim(-7, 7)
+    ax.set_ylim(-7, 7)
+    ax.set_zlim(-7, 7)
+    DrawTriangle(first[i], second[i], ax)
+    
+    print(TrianglesIntersect3D(first[i], second[i]))
+    plt.show()
+    print(TrianglesIntersect3D(first[i], second[i]))
 #print(EdgesOfTriangle([0, 0], [2, 0], [0, 2]))
