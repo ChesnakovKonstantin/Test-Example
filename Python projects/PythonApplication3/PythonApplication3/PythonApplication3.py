@@ -1,5 +1,6 @@
 import sys
 from PyQt5 import QtGui
+from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import (QWidget, QToolTip, QPushButton, QApplication, QVBoxLayout, QTabWidget, QLineEdit, QColorDialog, 
                              QSlider, QInputDialog, QFileDialog)
 from PyQt5.QtGui import QFont, QColor   
@@ -7,10 +8,63 @@ from PyQt5.QtCore import QCoreApplication, Qt
 from matplotlib import figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 from matplotlib.patches import Circle
 import numpy as np
 import xml.etree.cElementTree as ET
+import threading
+
+def dest(r1, r2, r3, t1, t2, t3):
+    return ((r1- t1)**2+(r2- t2)**2+(r3- t3)**2)**(0.5)
+
+def vectorfield(w, t, p):
+        r11, v11, r12, v12, r13, v13, r21, v21, r22, v22, r23, v23, r31, v31, r32, v32, r33, v33 = w
+        #r11 = r1[0]
+        #r12 = r1[1]
+        #r13 = r1[2]
+
+        #v11 = v1[0]
+        #v12 = v1[1]
+        #v13 = v1[2]
+
+        #r21 = r2[0]
+        #r22 = r2[1]
+        #r23 = r2[2]
+
+        #v21 = v2[0]
+        #v22 = v2[1]
+        #v23 = v2[2]
+
+        #r31 = r3[0]
+        #r32 = r3[1]
+        #r33 = r3[2]
+
+        #v31 = v3[0]
+        #v32 = v3[1]
+        #v33 = v3[2]
+        G, m1, m2, m3 = p
+
+        # Create f = (x1',y1',x2',y2'):
+        f = [v11, 
+             G*m2*(r21 - r11)/(dest(r21, r22, r23, r11, r12, r13)**3)+ G*m3*(r31-r11)/(dest(r31, r32, r33, r11, r12, r13)**3),
+             v12, 
+             G*m2*(r22 - r12)/(dest(r21, r22, r23, r11, r12, r13)**3)+ G*m3*(r32-r12)/(dest(r31, r32, r33, r11, r12, r13)**3),
+             v13, 
+             G*m2*(r23 - r13)/(dest(r21, r22, r23, r11, r12, r13)**3)+ G*m3*(r33-r13)/(dest(r31, r32, r33, r11, r12, r13)**3),
+             v21, 
+             G*m1*(r11 - r21)/(dest(r21, r22, r23, r11, r12, r13)**3)+ G*m3*(r31-r21)/(dest(r31, r32, r33, r21, r22, r23)**3),
+             v22, 
+             G*m1*(r12 - r22)/(dest(r21, r22, r23, r11, r12, r13)**3)+ G*m3*(r32-r22)/(dest(r31, r32, r33, r21, r22, r23)**3),
+             v23, 
+             G*m1*(r13 - r23)/(dest(r21, r22, r23, r11, r12, r13)**3)+ G*m3*(r33-r23)/(dest(r31, r32, r33, r21, r22, r23)**3),
+             v31, 
+             G*m1*(r11 - r31)/(dest(r31, r32, r33, r11, r12, r13)**3)+ G*m2*(r21-r31)/(dest(r31, r32, r33, r21, r22, r23)**3),
+             v32, 
+             G*m1*(r12 - r32)/(dest(r31, r32, r33, r11, r12, r13)**3)+ G*m2*(r22-r32)/(dest(r31, r32, r33, r21, r22, r23)**3),
+             v33, 
+             G*m1*(r13 - r33)/(dest(r31, r32, r33, r11, r12, r13)**3)+ G*m2*(r23-r33)/(dest(r31, r32, r33, r21, r22, r23)**3)]
+        return f
 
 class Circles():
     def __init__(self):
@@ -46,17 +100,28 @@ class Example(QWidget):
         self.tabs.addTab(self.tab2,"Model")
         #self.setMouseTracking(True)
         self.figure = plt.figure()
+        self.figureEarth = plt.figure()
         self.canvas = FigureCanvas(self.figure)
+        self.canvasEarth = FigureCanvas(self.figureEarth)
         self.canvas.mpl_connect('motion_notify_event', self.mouseMoveEvent)
         self.canvas.mpl_connect('button_press_event', self.mousePrintEvent)
-        #self.figure.mouseMoveEvent = self.mouseMoveEvent
-        #self.figure.setMouseTracking(True)
-        #self.canvas.viewport().installEventFilter(self)
-        #self.setMouseTracking(True)
+        
+        self.button_group = QtWidgets.QButtonGroup() # Number group
+        self.r0 = QtWidgets.QRadioButton("verlet")
+        self.button_group.addButton(self.r0)
+        self.r1 = QtWidgets.QRadioButton("scipy")
+        self.button_group.addButton(self.r1)
+        self.r2 = QtWidgets.QRadioButton("threading")
+        self.button_group.addButton(self.r2)
+        self.button_group.buttonClicked.connect(self.RadioButtonClicked)
 
         self.ax = self.figure.add_subplot(111)  # create an axis
         self.ax.set_xlim([-100, 100])
         self.ax.set_ylim([-100, 100])
+
+        self.axEarth = self.figureEarth.add_subplot(111)  # create an axis
+        self.axEarth.set_xlim([-2.0* (10**11), 2.0* (10**11)])
+        self.axEarth.set_ylim([-2.0* (10**11), 2.0* (10**11)])
 
         # Just some button connected to  method
         self.buttonPlus = QPushButton('+')
@@ -122,11 +187,19 @@ class Example(QWidget):
         self.tab1.layout.addWidget(self.buttonSave)
         self.tab1.setLayout(self.tab1.layout)
 
+        self.tab2.layout = QVBoxLayout(self)
+        self.tab2.layout.addWidget(self.r0)
+        self.tab2.layout.addWidget(self.r1)
+        self.tab2.layout.addWidget(self.r2)
+        self.tab2.layout.addWidget(self.canvasEarth)
+        self.tab2.setLayout(self.tab2.layout)
+
         self.layout.addWidget(self.tabs)
         self.setLayout(self.layout)
 
         #self.setLayout(layout)
         self.canvas.draw()
+        self.canvasEarth.draw()
         
         #btn = QPushButton('Button', self)
         #btn.setToolTip('This is a <b>QuitButton</b> widget')
@@ -240,13 +313,6 @@ class Example(QWidget):
             print(fileName)
         tree.write(fileName)
  
-    #def openFileNamesDialog(self):    
-    #    options = QFileDialog.Options()
-    #    options |= QFileDialog.DontUseNativeDialog
-    #    files, _ = QFileDialog.getOpenFileNames(self,"QFileDialog.getOpenFileNames()", "","All Files (*);;Python Files (*.py)", options=options)
-    #    if files:
-    #        print(files)
-
     def ParseXMLFile(self, filename):
         tree = ET.ElementTree(file=filename)
         for elem in tree.iter(tag = "figure"):
@@ -283,6 +349,61 @@ class Example(QWidget):
             print(fileName)
             self.ParseXMLFile(fileName)
 
+    def RadioButtonClicked(self, button):
+        if (self.r0.isChecked()):
+            verlet = Verlet(400000,120)
+            #verlet.REarth[0,0] = -1.474760457316177*(10**11)
+            #verlet.REarth[1,0] = 1.900200786726017*(10**10)
+            verlet.REarth[0,0] = 0
+            verlet.REarth[1,0] = -1.496*(10**11)
+            verlet.VEarth[0,0] = 29.783*(10**3)
+
+            verlet.RMoon[1,0] = -1.496*(10**11) - 384.467*(10**6)
+            verlet.VMoon[0,0] = 29.783*(10**3) + 1022
+            verlet.VerletMain()
+            self.axEarth.plot(verlet.RSun[0,:], verlet.RSun[1, :], color = 'yellow')
+            self.axEarth.plot(verlet.REarth[0,:], verlet.REarth[1, :], color = 'blue')
+            self.axEarth.plot(verlet.RMoon[0,:], verlet.RMoon[1, :], color = 'gray')
+            self.canvasEarth.draw()
+            print(self.button_group.checkedId())
+            print(self.button_group.checkedButton().text())
+
+        if (self.r1.isChecked()):
+            p = [6.67408 * (10**(-11)), 1988500 * (10**24), 5.9724 * (10**24), 7.34767309 * (10**22)]
+            w0 = [0, 0, 0, 0, 0, 0, 
+                  0, 29.783*(10**3), -1.496*(10**11), 0, 0, 0,
+                  0, 29.783*(10**3) + 1022, -1.496*(10**11) - 384.467*(10**6), 0, 0, 0]
+            t = [120*float(i) for i in range(400000)]
+            wsol = odeint(vectorfield, w0, t, args=(p,))
+            xSun = wsol[:, 0]
+            ySun = wsol[:, 2]
+            xEarth = wsol[:, 6]
+            yEarth = wsol[:, 8]
+            xMoon = wsol[:, 12]
+            yMoon = wsol[:, 14]
+            print(5)
+            self.axEarth.plot(xSun, ySun, color = 'yellow')
+            self.axEarth.plot(xEarth, yEarth, color = 'blue')
+            self.axEarth.plot(xMoon, yMoon, color = 'gray')
+            self.canvasEarth.draw()
+
+        if (self.r2.isChecked()):
+            verlet = VerletThreads(400000,120)
+            #verlet.REarth[0,0] = -1.474760457316177*(10**11)
+            #verlet.REarth[1,0] = 1.900200786726017*(10**10)
+            verlet.REarth[0,0] = 0
+            verlet.REarth[1,0] = -1.496*(10**11)
+            verlet.VEarth[0,0] = 29.783*(10**3)
+
+            verlet.RMoon[1,0] = -1.496*(10**11) - 384.467*(10**6)
+            verlet.VMoon[0,0] = 29.783*(10**3) + 1022
+            verlet.VerletMain()
+            print(5)
+            self.axEarth.plot(verlet.REarth[0,:], verlet.REarth[1, :], color = 'blue')
+            self.axEarth.plot(verlet.RMoon[0,:], verlet.RMoon[1, :], color = 'gray')
+            print(6)
+            self.canvasEarth.draw()
+
     def IsFloat(self, value):
         try:
             float(value)
@@ -308,6 +429,92 @@ class MyCircle(Circle):
         ax = plt.gca()
         ax.add_artist(circle1)
 
+class Verlet:
+    def __init__(self, Num, Dt):
+        self.N = Num
+        self.dt = Dt
+        self.G = 6.67408 * (10**(-11))
+        self.mSun = 1988500 * (10**24)
+        self.mEarth = 5.9724 * (10**24)
+        self.mMoon = 7.34767309 * (10**22)
+        self.RSun = np.zeros(shape = (3, self.N+1))
+        self.VSun = np.zeros(shape = (3, self.N+1))
+        self.ASun = np.zeros(shape = (3, self.N+1))
+
+        self.REarth = np.zeros(shape = (3, self.N+1))
+        self.VEarth = np.zeros(shape = (3, self.N+1))
+        self.AEarth = np.zeros(shape = (3, self.N+1))
+
+        self.RMoon = np.zeros(shape = (3, self.N+1))
+        self.VMoon = np.zeros(shape = (3, self.N+1))
+        self.AMoon = np.zeros(shape = (3, self.N+1))
+
+    def Acceleration(self, coordFirst, coordSecond, mass):
+        if (np.linalg.norm(coordSecond - coordFirst) < 0.0000001):
+            return 0
+        return self.G*mass*(coordSecond - coordFirst)/(np.linalg.norm(coordSecond - coordFirst)**3)
+
+    def VerletStep(self, R, V, A, i, kwargs):
+        for mass, r in kwargs.items():
+           A[:, i] += self.Acceleration(R[:, i], r[:, i], mass)
+        R[:, i+1] = R[:, i] + V[:, i]*self.dt + (A[:, i]*(self.dt**2)*0.5)
+        V[:, i+1] = V[:, i] + A[:, i]*self.dt
+
+    def VerletMain(self):
+        for i in range(self.N):
+            print(i)
+            self.VerletStep(self.REarth, self.VEarth, self.AEarth, i, {self.mSun : self.RSun, self.mMoon : self.RMoon})
+            self.VerletStep(self.RMoon, self.VMoon, self.AMoon, i, {self.mSun : self.RSun, self.mEarth : self.REarth})
+            self.VerletStep(self.RSun, self.VSun, self.ASun, i, {self.mEarth : self.REarth, self.mMoon : self.RMoon})
+
+
+class VerletThreads:
+    def __init__(self, Num, Dt):
+        self.N = Num
+        self.dt = Dt
+        self.G = 6.67408 * (10**(-11))
+        self.mSun = 1988500 * (10**24)
+        self.mEarth = 5.9724 * (10**24)
+        self.mMoon = 7.34767309 * (10**22)
+        self.RSun = np.zeros(shape = (3, self.N+1))
+        self.VSun = np.zeros(shape = (3, self.N+1))
+        self.ASun = np.zeros(shape = (3, self.N+1))
+
+        self.REarth = np.zeros(shape = (3, self.N+1))
+        self.VEarth = np.zeros(shape = (3, self.N+1))
+        self.AEarth = np.zeros(shape = (3, self.N+1))
+
+        self.RMoon = np.zeros(shape = (3, self.N+1))
+        self.VMoon = np.zeros(shape = (3, self.N+1))
+        self.AMoon = np.zeros(shape = (3, self.N+1))
+
+    def Acceleration(self, coordFirst, coordSecond, mass):
+        if (np.linalg.norm(coordSecond - coordFirst) < 0.0000001):
+            return 0
+        return self.G*mass*(coordSecond - coordFirst)/(np.linalg.norm(coordSecond - coordFirst)**3)
+
+    def VerletStep(self, R, V, A, n, event, events, kwargs):
+        for i in range(self.N):
+            for mass, r in kwargs.items():
+                A[:, i] += self.Acceleration(R[:, i], r[:, i], mass)
+            R[:, i+1] = R[:, i] + V[:, i]*self.dt + (A[:, i]*(self.dt**2)*0.5)
+            V[:, i+1] = V[:, i] + A[:, i]*self.dt
+            event.set()
+            events.wait()
+            events.clear()
+        event.set()
+
+    def VerletMain(self):
+        event12 = threading.Event()
+        event12.clear()
+        event21 = threading.Event()
+        event21.clear()
+        t1 = threading.Thread(name = "first", target = self.VerletStep, args = (self.REarth, self.VEarth, self.AEarth, 1, event12, event21, {self.mSun : self.RSun, self.mMoon : self.RMoon}))
+        t2 = threading.Thread(name = "second", target = self.VerletStep, args = (self.RMoon, self.VMoon, self.AMoon, 2, event21, event12, {self.mSun : self.RSun, self.mEarth : self.REarth}))
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
         
 if __name__ == '__main__':
     
