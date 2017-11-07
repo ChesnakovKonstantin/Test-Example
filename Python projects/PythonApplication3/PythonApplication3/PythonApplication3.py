@@ -325,7 +325,7 @@ class Example(QWidget):
             max = float(elem.find("Max").text)
             min = float(elem.find("Min").text)
             self.sld.setRange(min, max)
-            self.radius = int(elem.find("Radius").text)
+            self.radius = int(float(elem.find("Radius").text))
             self.sld.setValue(self.radius)
             self.textboxSld.setText(str(self.radius))
         self.ax.clear()
@@ -350,20 +350,25 @@ class Example(QWidget):
             self.ParseXMLFile(fileName)
 
     def RadioButtonClicked(self, button):
+        MEarth = 5.9724 * (10**24)
+        MMoon = 7.34767309 * (10**22)
+        MSun = 1988500 * (10**24)
         if (self.r0.isChecked()):
-            verlet = Verlet(400000,120)
-            #verlet.REarth[0,0] = -1.474760457316177*(10**11)
-            #verlet.REarth[1,0] = 1.900200786726017*(10**10)
-            verlet.REarth[0,0] = 0
-            verlet.REarth[1,0] = -1.496*(10**11)
-            verlet.VEarth[0,0] = 29.783*(10**3)
-
-            verlet.RMoon[1,0] = -1.496*(10**11) - 384.467*(10**6)
-            verlet.VMoon[0,0] = 29.783*(10**3) + 1022
+            N = 400000
+            dt = 120
+            Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
+            Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
+            Sun = Cosmic(N, MSun, 0, 0, 0, 0, 0, 0, [])
+            cosmics = [Sun, Earth, Moon]
+            for obj in cosmics:
+                for interactionObj in cosmics:
+                    if (not interactionObj is obj):
+                        obj.Interactions.append((interactionObj.M, interactionObj.R))
+            verlet = Verlet(N, dt, cosmics)
             verlet.VerletMain()
-            self.axEarth.plot(verlet.RSun[0,:], verlet.RSun[1, :], color = 'yellow')
-            self.axEarth.plot(verlet.REarth[0,:], verlet.REarth[1, :], color = 'blue')
-            self.axEarth.plot(verlet.RMoon[0,:], verlet.RMoon[1, :], color = 'gray')
+            self.axEarth.plot(Sun.R[0,:], Sun.R[1, :], color = 'yellow')
+            self.axEarth.plot(Earth.R[0,:], Earth.R[1, :], color = 'blue')
+            self.axEarth.plot(Moon.R[0,:], Moon.R[1, :], color = 'gray')
             self.canvasEarth.draw()
             print(self.button_group.checkedId())
             print(self.button_group.checkedButton().text())
@@ -388,21 +393,36 @@ class Example(QWidget):
             self.canvasEarth.draw()
 
         if (self.r2.isChecked()):
-            verlet = VerletThreads(400000,120)
-            #verlet.REarth[0,0] = -1.474760457316177*(10**11)
-            #verlet.REarth[1,0] = 1.900200786726017*(10**10)
-            verlet.REarth[0,0] = 0
-            verlet.REarth[1,0] = -1.496*(10**11)
-            verlet.VEarth[0,0] = 29.783*(10**3)
-
-            verlet.RMoon[1,0] = -1.496*(10**11) - 384.467*(10**6)
-            verlet.VMoon[0,0] = 29.783*(10**3) + 1022
+            N = 4000
+            dt = 120
+            Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
+            Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
+            Sun = Cosmic(N, MSun, 0, 0, 0, 0, 0, 0, [])
+            cosmics = [Sun, Earth, Moon]
+            for obj in cosmics:
+                for interactionObj in cosmics:
+                    if (not interactionObj is obj):
+                        obj.Interactions.append((interactionObj.M, interactionObj.R))
+            verlet = VerletThreads(N, dt, cosmics)
             verlet.VerletMain()
-            print(5)
-            self.axEarth.plot(verlet.REarth[0,:], verlet.REarth[1, :], color = 'blue')
-            self.axEarth.plot(verlet.RMoon[0,:], verlet.RMoon[1, :], color = 'gray')
-            print(6)
+            self.axEarth.plot(Sun.R[0,:], Sun.R[1, :], color = 'yellow')
+            self.axEarth.plot(Earth.R[0,:], Earth.R[1, :], color = 'blue')
+            self.axEarth.plot(Moon.R[0,:], Moon.R[1, :], color = 'gray')
             self.canvasEarth.draw()
+
+            #verlet = VerletThreads(400000,120)
+            #verlet.REarth[0,0] = 0
+            #verlet.REarth[1,0] = -1.496*(10**11)
+            #verlet.VEarth[0,0] = 29.783*(10**3)
+
+            #verlet.RMoon[1,0] = -1.496*(10**11) - 384.467*(10**6)
+            #verlet.VMoon[0,0] = 29.783*(10**3) + 1022
+            #verlet.VerletMain()
+            #print(5)
+            #self.axEarth.plot(verlet.REarth[0,:], verlet.REarth[1, :], color = 'blue')
+            #self.axEarth.plot(verlet.RMoon[0,:], verlet.RMoon[1, :], color = 'gray')
+            #print(6)
+            #self.canvasEarth.draw()
 
     def IsFloat(self, value):
         try:
@@ -429,25 +449,27 @@ class MyCircle(Circle):
         ax = plt.gca()
         ax.add_artist(circle1)
 
+class Cosmic:
+    def __init__(self, n, mass, RxInit, RyInit, VxInit, VyInit, AxInit, AyInit, interactions):
+        self.N = n
+        self.M = mass
+        self.R = np.zeros(shape = (3, self.N+1))
+        self.V = np.zeros(shape = (3, self.N+1))
+        self.A = np.zeros(shape = (3, self.N+1))
+        self.R[0,0] = RxInit
+        self.R[1,0] = RyInit
+        self.V[0,0] = VxInit
+        self.V[1,0] = VyInit
+        self.A[0,0] = AxInit
+        self.A[1,0] = AyInit
+        self.Interactions = interactions
+
 class Verlet:
-    def __init__(self, Num, Dt):
+    def __init__(self, Num, Dt, objects):
         self.N = Num
         self.dt = Dt
         self.G = 6.67408 * (10**(-11))
-        self.mSun = 1988500 * (10**24)
-        self.mEarth = 5.9724 * (10**24)
-        self.mMoon = 7.34767309 * (10**22)
-        self.RSun = np.zeros(shape = (3, self.N+1))
-        self.VSun = np.zeros(shape = (3, self.N+1))
-        self.ASun = np.zeros(shape = (3, self.N+1))
-
-        self.REarth = np.zeros(shape = (3, self.N+1))
-        self.VEarth = np.zeros(shape = (3, self.N+1))
-        self.AEarth = np.zeros(shape = (3, self.N+1))
-
-        self.RMoon = np.zeros(shape = (3, self.N+1))
-        self.VMoon = np.zeros(shape = (3, self.N+1))
-        self.AMoon = np.zeros(shape = (3, self.N+1))
+        self.Objects = objects
 
     def Acceleration(self, coordFirst, coordSecond, mass):
         if (np.linalg.norm(coordSecond - coordFirst) < 0.0000001):
@@ -455,66 +477,93 @@ class Verlet:
         return self.G*mass*(coordSecond - coordFirst)/(np.linalg.norm(coordSecond - coordFirst)**3)
 
     def VerletStep(self, R, V, A, i, kwargs):
-        for mass, r in kwargs.items():
+        for (mass, r) in kwargs:
            A[:, i] += self.Acceleration(R[:, i], r[:, i], mass)
         R[:, i+1] = R[:, i] + V[:, i]*self.dt + (A[:, i]*(self.dt**2)*0.5)
         V[:, i+1] = V[:, i] + A[:, i]*self.dt
 
     def VerletMain(self):
         for i in range(self.N):
-            print(i)
-            self.VerletStep(self.REarth, self.VEarth, self.AEarth, i, {self.mSun : self.RSun, self.mMoon : self.RMoon})
-            self.VerletStep(self.RMoon, self.VMoon, self.AMoon, i, {self.mSun : self.RSun, self.mEarth : self.REarth})
-            self.VerletStep(self.RSun, self.VSun, self.ASun, i, {self.mEarth : self.REarth, self.mMoon : self.RMoon})
-
+            for obj in self.Objects:
+                interactions = []
+                #for interactionObj in self.Objects:
+                #    if (not interactionObj is obj):
+                #        interactions.append((interactionObj.M, interactionObj.R))
+                self.VerletStep(obj.R, obj.V, obj.A, i, obj.Interactions)
+                print(i)
 
 class VerletThreads:
-    def __init__(self, Num, Dt):
+    def __init__(self, Num, Dt, objects):
         self.N = Num
         self.dt = Dt
         self.G = 6.67408 * (10**(-11))
-        self.mSun = 1988500 * (10**24)
-        self.mEarth = 5.9724 * (10**24)
-        self.mMoon = 7.34767309 * (10**22)
-        self.RSun = np.zeros(shape = (3, self.N+1))
-        self.VSun = np.zeros(shape = (3, self.N+1))
-        self.ASun = np.zeros(shape = (3, self.N+1))
-
-        self.REarth = np.zeros(shape = (3, self.N+1))
-        self.VEarth = np.zeros(shape = (3, self.N+1))
-        self.AEarth = np.zeros(shape = (3, self.N+1))
-
-        self.RMoon = np.zeros(shape = (3, self.N+1))
-        self.VMoon = np.zeros(shape = (3, self.N+1))
-        self.AMoon = np.zeros(shape = (3, self.N+1))
+        self.Objects = objects
 
     def Acceleration(self, coordFirst, coordSecond, mass):
         if (np.linalg.norm(coordSecond - coordFirst) < 0.0000001):
             return 0
         return self.G*mass*(coordSecond - coordFirst)/(np.linalg.norm(coordSecond - coordFirst)**3)
 
-    def VerletStep(self, R, V, A, n, event, events, kwargs):
+    def VerletStep(self, R, V, A, eventMy, eventOther, kwargs):
         for i in range(self.N):
-            for mass, r in kwargs.items():
+            for (mass, r) in kwargs:
                 A[:, i] += self.Acceleration(R[:, i], r[:, i], mass)
             R[:, i+1] = R[:, i] + V[:, i]*self.dt + (A[:, i]*(self.dt**2)*0.5)
             V[:, i+1] = V[:, i] + A[:, i]*self.dt
-            event.set()
-            events.wait()
-            events.clear()
-        event.set()
+            print(i)
+            eventMy.set()
+            eventOther.wait()
+            eventOther.clear()
+        eventMy.set()
+
+    def MainThreadOperation(self, eventsMy, eventsOther):
+        for i in range(self.N):
+            #print("Main1")
+            for evt in eventsMy:
+                evt.wait()
+                evt.clear()
+            #print("Main2")
+            for evt in eventsOther:
+                evt.set()
+            print("Main3")
 
     def VerletMain(self):
-        event12 = threading.Event()
-        event12.clear()
-        event21 = threading.Event()
-        event21.clear()
-        t1 = threading.Thread(name = "first", target = self.VerletStep, args = (self.REarth, self.VEarth, self.AEarth, 1, event12, event21, {self.mSun : self.RSun, self.mMoon : self.RMoon}))
-        t2 = threading.Thread(name = "second", target = self.VerletStep, args = (self.RMoon, self.VMoon, self.AMoon, 2, event21, event12, {self.mSun : self.RSun, self.mEarth : self.REarth}))
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
+        eventMy = []
+        eventTheir = []
+        threads = []
+        threadMain = threading.Thread(target = self.MainThreadOperation, args = (eventMy, eventTheir))
+
+        for obj in self.Objects:
+            interactions = []
+            #for interactionObj in self.Objects:
+            #    if (not interactionObj is obj):
+            #       interactions.append((interactionObj.M, interactionObj.R))
+            e = threading.Event()
+            e.clear()
+            eventTheir.append(e)
+            ev = threading.Event()
+            ev.clear()
+            eventMy.append(ev)
+            threads.append(threading.Thread(target = self.VerletStep, args = (obj.R, obj.V, obj.A, ev, e, obj.Interactions)))
+            print(-1)
+        for thrd in threads:
+            thrd.start()
+        threadMain.start()
+        for thrd in threads:
+            thrd.join()
+        #threadMain.join()
+
+
+        #event12 = threading.Event()
+        #event12.clear()
+        #event21 = threading.Event()
+        #event21.clear()
+        #t1 = threading.Thread(name = "first", target = self.VerletStep, args = (self.REarth, self.VEarth, self.AEarth, 1, event12, event21, {self.mSun : self.RSun, self.mMoon : self.RMoon}))
+        #t2 = threading.Thread(name = "second", target = self.VerletStep, args = (self.RMoon, self.VMoon, self.AMoon, 2, event21, event12, {self.mSun : self.RSun, self.mEarth : self.REarth}))
+        #t1.start()
+        #t2.start()
+        #t1.join()
+        #t2.join()
         
 if __name__ == '__main__':
     
