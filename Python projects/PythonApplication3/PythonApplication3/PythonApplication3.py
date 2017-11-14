@@ -350,11 +350,13 @@ class Example(QWidget):
             self.ParseXMLFile(fileName)
 
     def RadioButtonClicked(self, button):
+        #self.axEarth.set_xlim([-2.0* (10**11), 2.0* (10**11)])
+        #self.axEarth.set_ylim([-2.0* (10**11), 2.0* (10**11)])
         MEarth = 5.9724 * (10**24)
         MMoon = 7.34767309 * (10**22)
         MSun = 1988500 * (10**24)
         if (self.r0.isChecked()):
-            N = 400000
+            N = 4000
             dt = 120
             Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
             Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
@@ -366,12 +368,20 @@ class Example(QWidget):
                         obj.Interactions.append((interactionObj.M, interactionObj.R))
             verlet = Verlet(N, dt, cosmics)
             verlet.VerletMain()
-            self.axEarth.plot(Sun.R[0,:], Sun.R[1, :], color = 'yellow')
-            self.axEarth.plot(Earth.R[0,:], Earth.R[1, :], color = 'blue')
-            self.axEarth.plot(Moon.R[0,:], Moon.R[1, :], color = 'gray')
-            self.canvasEarth.draw()
-            print(self.button_group.checkedId())
-            print(self.button_group.checkedButton().text())
+            print("Verlet calculated")
+            for i in range (len(Sun.R[0,:])):
+                 
+                circleSun = MyCircle(Sun.R[0, i], Sun.R[1,i], 10**10, 'yellow')
+                self.axEarth.add_artist(circleSun)
+                self.canvasEarth.draw()
+
+                #self.ax.clear()
+                self.axEarth.plot(Sun.R[0,:], Sun.R[1, :], color = 'yellow')
+                self.axEarth.plot(Earth.R[0,:], Earth.R[1, :], color = 'blue')
+                self.axEarth.plot(Moon.R[0,:], Moon.R[1, :], color = 'gray')
+                self.canvasEarth.draw()
+                print(self.button_group.checkedId())
+                print(self.button_group.checkedButton().text())
 
         if (self.r1.isChecked()):
             p = [6.67408 * (10**(-11)), 1988500 * (10**24), 5.9724 * (10**24), 7.34767309 * (10**22)]
@@ -387,13 +397,14 @@ class Example(QWidget):
             xMoon = wsol[:, 12]
             yMoon = wsol[:, 14]
             print(5)
+            self.ax.clear()
             self.axEarth.plot(xSun, ySun, color = 'yellow')
-            self.axEarth.plot(xEarth, yEarth, color = 'blue')
+            self.axEarth.plot(xEarth, yEarth, color = 'green')
             self.axEarth.plot(xMoon, yMoon, color = 'gray')
             self.canvasEarth.draw()
 
         if (self.r2.isChecked()):
-            N = 4000
+            N = 400000
             dt = 120
             Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
             Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
@@ -405,6 +416,8 @@ class Example(QWidget):
                         obj.Interactions.append((interactionObj.M, interactionObj.R))
             verlet = VerletThreads(N, dt, cosmics)
             verlet.VerletMain()
+            
+            plt.cla()
             self.axEarth.plot(Sun.R[0,:], Sun.R[1, :], color = 'yellow')
             self.axEarth.plot(Earth.R[0,:], Earth.R[1, :], color = 'blue')
             self.axEarth.plot(Moon.R[0,:], Moon.R[1, :], color = 'gray')
@@ -490,7 +503,6 @@ class Verlet:
                 #    if (not interactionObj is obj):
                 #        interactions.append((interactionObj.M, interactionObj.R))
                 self.VerletStep(obj.R, obj.V, obj.A, i, obj.Interactions)
-                print(i)
 
 class VerletThreads:
     def __init__(self, Num, Dt, objects):
@@ -510,7 +522,6 @@ class VerletThreads:
                 A[:, i] += self.Acceleration(R[:, i], r[:, i], mass)
             R[:, i+1] = R[:, i] + V[:, i]*self.dt + (A[:, i]*(self.dt**2)*0.5)
             V[:, i+1] = V[:, i] + A[:, i]*self.dt
-            print(i)
             eventMy.set()
             eventOther.wait()
             eventOther.clear()
@@ -525,7 +536,7 @@ class VerletThreads:
             #print("Main2")
             for evt in eventsOther:
                 evt.set()
-            print("Main3")
+            #print("Main3")
 
     def VerletMain(self):
         eventMy = []
@@ -551,7 +562,8 @@ class VerletThreads:
         threadMain.start()
         for thrd in threads:
             thrd.join()
-        #threadMain.join()
+        threadMain.join()
+        print("AllJoined")
 
 
         #event12 = threading.Event()
