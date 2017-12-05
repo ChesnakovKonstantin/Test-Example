@@ -28,4 +28,5 @@ def LeastIncreasingSequence(a):
    return length
    
 a = [1,2,4,5,2,7, 7.09]
+a = [1,2,4,5,2,7,0,1,2,3,4,5,6,7]
 print(LeastIncreasingSequence(a))

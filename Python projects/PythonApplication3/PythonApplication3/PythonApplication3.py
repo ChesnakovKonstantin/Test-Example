@@ -14,6 +14,88 @@ from matplotlib.patches import Circle
 import numpy as np
 import xml.etree.cElementTree as ET
 import threading
+import time
+from matplotlib.lines import Line2D
+import matplotlib.animation as animation
+
+class SubplotAnimation(animation.TimedAnimation):
+    def __init__(self, fig, ax1, tn, xSun, ySun, xEarth, yEarth, xMoon, yMoon):
+        #fig = plt.figure()
+        #ax1 = fig.add_subplot(1, 2, 1)
+        #ax2 = fig.add_subplot(2, 2, 2)
+        #ax3 = fig.add_subplot(2, 2, 4)
+
+        self.t = tn
+        self.xS = xSun
+        self.yS = ySun
+        self.xE = xEarth
+        self.yE = yEarth
+        self.xM = xMoon
+        self.yM = yMoon
+        self.z = 10 * self.t
+
+        #ax1.set_xlabel('x')
+        #ax1.set_ylabel('y')
+        self.line1S = Line2D([], [], color='yellow')
+        self.line1aS = Line2D([], [], color='yellow', linewidth=2)
+        self.line1eS = Line2D(
+            [], [], color='yellow', marker='o', markeredgecolor='r')
+        ax1.add_line(self.line1S)
+        ax1.add_line(self.line1aS)
+        ax1.add_line(self.line1eS)
+
+        self.line1E = Line2D([], [], color='blue')
+        self.line1aE = Line2D([], [], color='blue', linewidth=2)
+        self.line1eE = Line2D(
+            [], [], color='blue', marker='o', markeredgecolor='r')
+        ax1.add_line(self.line1E)
+        ax1.add_line(self.line1aE)
+        ax1.add_line(self.line1eE)
+
+        self.line1M = Line2D([], [], color='grey')
+        self.line1aM = Line2D([], [], color='grey', linewidth=2)
+        self.line1eM = Line2D(
+            [], [], color='grey', marker='o', markeredgecolor='r')
+        ax1.add_line(self.line1M)
+        ax1.add_line(self.line1aM)
+        ax1.add_line(self.line1eM)
+        #ax1.set_xlim(-1, 1)
+        #ax1.set_ylim(-2, 2)
+        ax1.set_aspect('equal', 'datalim')
+        #ekurin@geo-lab.ru
+        animation.TimedAnimation.__init__(self, fig, interval = 1, blit=True)
+
+    def _draw_frame(self, framedata):
+        i = framedata
+        head = i - 1
+        head_slice = (self.t > self.t[i] - 1.0) & (self.t < self.t[i])
+
+        self.line1S.set_data(self.xS[:i], self.yS[:i])
+        self.line1aS.set_data(self.xS[head_slice], self.yS[head_slice])
+        self.line1eS.set_data(self.xS[head], self.yS[head])
+
+        self.line1E.set_data(self.xE[:i], self.yE[:i])
+        self.line1aE.set_data(self.xE[head_slice], self.yE[head_slice])
+        self.line1eE.set_data(self.xE[head], self.yE[head])
+
+        self.line1M.set_data(self.xM[:i], self.yM[:i])
+        self.line1aM.set_data(self.xM[head_slice], self.yM[head_slice])
+        self.line1eM.set_data(self.xM[head], self.yM[head])
+
+        self._drawn_artists = [self.line1S, self.line1aS, self.line1eS,
+                               self.line1E, self.line1aE, self.line1eE,
+                               self.line1M, self.line1aM, self.line1eM]
+
+    def new_frame_seq(self):
+        return iter(range(len(self.t)))
+
+    def _init_draw(self):
+        lines = [self.line1S, self.line1aS, self.line1eS,
+                               self.line1E, self.line1aE, self.line1eE,
+                               self.line1M, self.line1aM, self.line1eM]
+        for l in lines:
+            l.set_data([], [])
+
 
 def dest(r1, r2, r3, t1, t2, t3):
     return ((r1- t1)**2+(r2- t2)**2+(r3- t3)**2)**(0.5)
@@ -93,7 +175,7 @@ class Example(QWidget):
         self.tabs = QTabWidget()
         self.tab1 = QWidget()	
         self.tab2 = QWidget()
-        self.tabs.resize(300,200) 
+        self.tabs.resize(3000,2000) 
  
         # Add tabs
         self.tabs.addTab(self.tab1,"Edit")
@@ -207,7 +289,7 @@ class Example(QWidget):
         #btn.resize(btn.sizeHint())
         #btn.move(50, 50)       
         
-        self.setGeometry(300, 300, 300, 200)
+        self.setGeometry(300, 300, 1000, 1000)
         self.setWindowTitle('Circles')    
         self.show()
 
@@ -356,8 +438,9 @@ class Example(QWidget):
         MMoon = 7.34767309 * (10**22)
         MSun = 1988500 * (10**24)
         if (self.r0.isChecked()):
-            N = 4000
-            dt = 120
+            N = 40000
+            dt = 1200
+            #Tn = np.linspace(0, 40*1200, 40)
             Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
             Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
             Sun = Cosmic(N, MSun, 0, 0, 0, 0, 0, 0, [])
@@ -369,26 +452,30 @@ class Example(QWidget):
             verlet = Verlet(N, dt, cosmics)
             verlet.VerletMain()
             print("Verlet calculated")
-            for i in range (len(Sun.R[0,:])):
+            self.axEarth.clear()
+            Tn = np.linspace(0, 4, 40001)
+            ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, Sun.R[0, :], Sun.R[1, :], Earth.R[0, :], Earth.R[1, :], Moon.R[0, :], Moon.R[1, :])
+            self.canvasEarth.draw()
+            #for i in range(len(Sun.R[0,:])):
                  
-                circleSun = MyCircle(Sun.R[0, i], Sun.R[1,i], 10**10, 'yellow')
-                self.axEarth.add_artist(circleSun)
-                self.canvasEarth.draw()
+            #    #circleSun = MyCircle(Sun.R[0, i], Sun.R[1,i], 10**11, 'yellow')
+            #    #self.figureEarth.gca().add_patch(circleSun)
+            #    #self.canvasEarth.draw()
 
-                #self.ax.clear()
-                self.axEarth.plot(Sun.R[0,:], Sun.R[1, :], color = 'yellow')
-                self.axEarth.plot(Earth.R[0,:], Earth.R[1, :], color = 'blue')
-                self.axEarth.plot(Moon.R[0,:], Moon.R[1, :], color = 'gray')
-                self.canvasEarth.draw()
-                print(self.button_group.checkedId())
-                print(self.button_group.checkedButton().text())
-
+            #    time.sleep(1)
+            #    self.axEarth.plot(Sun.R[0, i], Sun.R[1, i], color = 'yellow')
+            #    self.axEarth.plot(Earth.R[0, i], Earth.R[1, i], color = 'blue')
+            #    self.axEarth.plot(Moon.R[0, i], Moon.R[1, i], color = 'gray')
+            #    print(self.button_group.checkedId())
+            #    print(self.button_group.checkedButton().text())
+                
+        
         if (self.r1.isChecked()):
             p = [6.67408 * (10**(-11)), 1988500 * (10**24), 5.9724 * (10**24), 7.34767309 * (10**22)]
             w0 = [0, 0, 0, 0, 0, 0, 
                   0, 29.783*(10**3), -1.496*(10**11), 0, 0, 0,
                   0, 29.783*(10**3) + 1022, -1.496*(10**11) - 384.467*(10**6), 0, 0, 0]
-            t = [120*float(i) for i in range(400000)]
+            t = [1200*float(i) for i in range(40000)]
             wsol = odeint(vectorfield, w0, t, args=(p,))
             xSun = wsol[:, 0]
             ySun = wsol[:, 2]
@@ -397,15 +484,14 @@ class Example(QWidget):
             xMoon = wsol[:, 12]
             yMoon = wsol[:, 14]
             print(5)
-            self.ax.clear()
-            self.axEarth.plot(xSun, ySun, color = 'yellow')
-            self.axEarth.plot(xEarth, yEarth, color = 'green')
-            self.axEarth.plot(xMoon, yMoon, color = 'gray')
+            self.axEarth.clear()
+            Tn = np.linspace(0, 4, 40000)
+            ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, xSun, ySun, xEarth, yEarth, xMoon, yMoon)
             self.canvasEarth.draw()
 
         if (self.r2.isChecked()):
-            N = 400000
-            dt = 120
+            N = 40000
+            dt = 1200
             Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
             Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
             Sun = Cosmic(N, MSun, 0, 0, 0, 0, 0, 0, [])
@@ -416,11 +502,9 @@ class Example(QWidget):
                         obj.Interactions.append((interactionObj.M, interactionObj.R))
             verlet = VerletThreads(N, dt, cosmics)
             verlet.VerletMain()
-            
-            plt.cla()
-            self.axEarth.plot(Sun.R[0,:], Sun.R[1, :], color = 'yellow')
-            self.axEarth.plot(Earth.R[0,:], Earth.R[1, :], color = 'blue')
-            self.axEarth.plot(Moon.R[0,:], Moon.R[1, :], color = 'gray')
+            self.figureEarth.clear()
+            Tn = np.linspace(0, 4, 40001)
+            ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, Sun.R[0, :], Sun.R[1, :], Earth.R[0, :], Earth.R[1, :], Moon.R[0, :], Moon.R[1, :])
             self.canvasEarth.draw()
 
             #verlet = VerletThreads(400000,120)
