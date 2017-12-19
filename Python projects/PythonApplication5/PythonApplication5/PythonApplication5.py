@@ -103,29 +103,10 @@ def draw():
     # Второй параметр - начальный индекс в указанных массивах
     # Третий параметр - количество рисуемых объектов (в нашем случае это 3 вершины - 9 координат)
     glRotated(270, 1, 0, 0)
-    glDrawArrays(GL_TRIANGLES, 0, 36)
+    glDrawArrays(GL_TRIANGLES, 0, 36 + 2160)
     glRotated(-270, 1, 0, 0)
     #Draw Cone
-    glBegin(GL_TRIANGLES)
-    for i in range(360):
-        glColor3f(1.0,1.0,0.0)
-        glVertex3f( 0, 0, 1.0)
-        glColor3f(1.0,1.0,0.0)
-        glVertex3f(math.sin((i*math.pi)/180), math.cos((i*math.pi)/180), 0)
-        glColor3f(1.0,1.0,0.0)
-        glVertex3f(math.sin(((i+step)*math.pi)/180), math.cos(((i+step)*math.pi)/180), 0)
-    glEnd()
-
-    glBegin(GL_TRIANGLES)
-    for i in range(360):
-        glColor3f(1.0,0.0,0.0)
-        glVertex3f( 0, 0, 0)
-        glColor3f(1.0, 0.0, 0.0)
-        glVertex3f(math.cos((i*math.pi)/180), math.sin((i*math.pi)/180), 0)
-        glColor3f(1.0,0.0,0.0)
-        glVertex3f(math.cos(((i+step)*math.pi)/180), math.sin(((i+step)*math.pi)/180), 0)
-    glEnd()
-
+    #glBegin(GL_TRIANGLES)
     glDisableClientState(GL_VERTEX_ARRAY)           # Отключаем использование массива вершин
     glDisableClientState(GL_COLOR_ARRAY)            # Отключаем использование массива цветов
     glutSwapBuffers()                               # Выводим все нарисованное в памяти на экран
@@ -223,8 +204,7 @@ cubedata = [[-0.5, -0.5, -0.5],
     [0.5, 0.5, 0.5],
     [-0.5, 0.5, 0.5],
     [0.5,-0.5, 0.5]]
-# Определяем массив цветов (по одному цвету для каждой вершины)
-pointcolor = [[1, 1, 0], [0, 1, 1], [1, 0, 1], [1, 1, 0], [0, 1, 1], [1, 0, 1]]
+
 cubecolor = [
     [1, 1, 0],
     [1, 1, 0],
@@ -253,7 +233,7 @@ cubecolor = [
     [1, 1, 0],
     [1, 1, 0],
     [1, 1, 0],
-    [1,  0,  0],
+    [1, 0, 0],
     [1, 0, 0],
     [1, 0, 0],
     [1, 0, 0],
@@ -263,6 +243,124 @@ cubecolor = [
     [1, 1, 0],
     [1, 1, 0],
     ]
+
+for i in range(360):
+    #glColor3f(1.0,1.0,0.0)
+    #masconecolorlist.append([1.0,1.0,0.0])
+    #masconevertslist.append([0, 0, 1])
+    cubecolor.append([1.0,1.0,0.0])
+    cubedata.append([0, 0, 1])
+    #glVertex3f( 0, 0, 1.0)
+    #glColor3f(1.0,1.0,0.0)
+    #masconecolorlist.append([1.0,1.0,0.0])
+    #masconevertslist.append([math.sin((i*math.pi)/180), math.cos((i*math.pi)/180), 0])
+    cubecolor.append([1.0,1.0,0.0])
+    cubedata.append([math.sin((i*math.pi)/180), math.cos((i*math.pi)/180), 0])
+    #glVertex3f(math.sin((i*math.pi)/180), math.cos((i*math.pi)/180), 0)
+    #glColor3f(1.0,1.0,0.0)
+    #masconecolorlist.append([1.0,1.0,0.0])
+    #masconevertslist.append([math.sin(((i+step)*math.pi)/180), math.cos(((i+step)*math.pi)/180), 0])
+    cubecolor.append([1.0,1.0,0.0])
+    cubedata.append([math.sin(((i+step)*math.pi)/180), math.cos(((i+step)*math.pi)/180), 0])
+    #glVertex3f(math.sin(((i+step)*math.pi)/180), math.cos(((i+step)*math.pi)/180), 0)
+#glEnd()
+
+#glBegin(GL_TRIANGLES)
+for i in range(360):
+    #glColor3f(1.0,0.0,0.0)
+    #glVertex3f( 0, 0, 0)
+    cubecolor.append([1.0, 0.0, 0.0])
+    cubedata.append([0, 0, 0])
+    #glColor3f(1.0, 0.0, 0.0)
+    #glVertex3f(math.cos((i*math.pi)/180), math.sin((i*math.pi)/180), 0)
+    cubecolor.append([1.0,0.0,0.0])
+    cubedata.append([math.cos((i*math.pi)/180), math.sin((i*math.pi)/180), 0])
+    #glColor3f(1.0,0.0,0.0)
+    #glVertex3f(math.cos(((i+step)*math.pi)/180), math.sin(((i+step)*math.pi)/180), 0)
+    cubecolor.append([1.0,0.0,0.0])
+    cubedata.append([math.cos(((i+step)*math.pi)/180), math.sin(((i+step)*math.pi)/180), 0])
+#glEnd()
+
+#cubedata = [[-0.5, -0.5, -0.5],
+#    [-0.5,-0.5, 0.5],
+#    [-0.5, 0.5, 0.5],
+#    [0.5, 0.5,-0.5],
+#    [-0.5,-0.5,-0.5],
+#    [-0.5, 0.5,-0.5], 
+#    [0.5,-0.5, 0.5],
+#    [-0.5,-0.5,-0.5],
+#    [0.5,-0.5,-0.5],
+#    [0.5, 0.5,-0.5],
+#    [0.5,-0.5,-0.5],
+#    [-0.5,-0.5,-0.5],
+#    [-0.5,-0.5,-0.5],
+#    [-0.5, 0.5, 0.5],
+#    [-0.5, 0.5,-0.5],
+#    [0.5,-0.5, 0.5],
+#    [-0.5,-0.5, 0.5],
+#    [-0.5,-0.5,-0.5],
+#    [-0.5, 0.5, 0.5],
+#    [-0.5,-0.5, 0.5],
+#    [0.5,-0.5, 0.5],
+#    [0.5, 0.5, 0.5],
+#    [0.5,-0.5,-0.5],
+#    [0.5, 0.5,-0.5],
+#    [0.5,-0.5,-0.5],
+#    [0.5, 0.5, 0.5],
+#    [0.5,-0.5, 0.5],
+#    [0.5, 0.5, 0.5],
+#    [0.5, 0.5,-0.5],
+#    [-0.5, 0.5,-0.5],
+#    [0.5, 0.5, 0.5],
+#    [-0.5, 0.5,-0.5],
+#    [-0.5, 0.5, 0.5],
+#    [0.5, 0.5, 0.5],
+#    [-0.5, 0.5, 0.5],
+#    [0.5,-0.5, 0.5]]
+#cubedata.append(masconevertslist)
+#print(cubedata)
+#print(masconevertslist)
+## Определяем массив цветов (по одному цвету для каждой вершины)
+#pointcolor = [[1, 1, 0], [0, 1, 1], [1, 0, 1], [1, 1, 0], [0, 1, 1], [1, 0, 1]]
+#cubecolor = [
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [0, 1, 0],
+#    [0, 1, 0],
+#    [0, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [0, 1, 0],
+#    [0, 1, 0],
+#    [0, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 0, 0],
+#    [1, 0, 0],
+#    [1, 0, 0],
+#    [1, 0, 0],
+#    [1, 0, 0],
+#    [1, 0, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    [1, 1, 0],
+#    ]
+#cubecolor.append(masconecolorlist)
 # Запускаем основой цикл
 glutMainLoop()
 

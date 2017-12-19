@@ -15,6 +15,10 @@ import numpy as np
 import xml.etree.cElementTree as ET
 import threading
 import time
+import multiprocessing
+from multiprocessing import Process, Queue, Pipe
+from multiprocessing.sharedctypes import Value, Array
+import ctypes as c
 from matplotlib.lines import Line2D
 import matplotlib.animation as animation
 
@@ -195,6 +199,8 @@ class Example(QWidget):
         self.button_group.addButton(self.r1)
         self.r2 = QtWidgets.QRadioButton("threading")
         self.button_group.addButton(self.r2)
+        self.r3 = QtWidgets.QRadioButton("multiprocessing")
+        self.button_group.addButton(self.r3)
         self.button_group.buttonClicked.connect(self.RadioButtonClicked)
 
         self.ax = self.figure.add_subplot(111)  # create an axis
@@ -273,6 +279,7 @@ class Example(QWidget):
         self.tab2.layout.addWidget(self.r0)
         self.tab2.layout.addWidget(self.r1)
         self.tab2.layout.addWidget(self.r2)
+        self.tab2.layout.addWidget(self.r3)
         self.tab2.layout.addWidget(self.canvasEarth)
         self.tab2.setLayout(self.tab2.layout)
 
@@ -487,6 +494,7 @@ class Example(QWidget):
             self.axEarth.clear()
             Tn = np.linspace(0, 4, 40000)
             ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, xSun, ySun, xEarth, yEarth, xMoon, yMoon)
+            self.canvasEarth.clear()
             self.canvasEarth.draw()
 
         if (self.r2.isChecked()):
@@ -504,6 +512,24 @@ class Example(QWidget):
             verlet.VerletMain()
             self.figureEarth.clear()
             Tn = np.linspace(0, 4, 40001)
+            ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, Sun.R[0, :], Sun.R[1, :], Earth.R[0, :], Earth.R[1, :], Moon.R[0, :], Moon.R[1, :])
+            self.canvasEarth.draw()
+
+        if (self.r3.isChecked()):
+            N = 4000
+            dt = 1200
+            Earth = CosmicMulti(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
+            Moon = CosmicMulti(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
+            Sun = CosmicMulti(N, MSun, 0, 0, 0, 0, 0, 0, [])
+            cosmics = [Sun, Earth, Moon]
+            for obj in cosmics:
+                for interactionObj in cosmics:
+                    if (not interactionObj is obj):
+                        obj.Interactions.append((interactionObj.M, interactionObj.R))
+            verlet = VerletMultiProcessing(N, dt, cosmics)
+            verlet.VerletMain()
+            self.figureEarth.clear()
+            Tn = np.linspace(0, 4, 4001)
             ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, Sun.R[0, :], Sun.R[1, :], Earth.R[0, :], Earth.R[1, :], Moon.R[0, :], Moon.R[1, :])
             self.canvasEarth.draw()
 
@@ -559,6 +585,36 @@ class Cosmic:
         self.V[1,0] = VyInit
         self.A[0,0] = AxInit
         self.A[1,0] = AyInit
+        self.Interactions = interactions
+
+class CosmicMulti:
+    def __init__(self, n, mass, RxInit, RyInit, VxInit, VyInit, AxInit, AyInit, interactions):
+        self.N = n
+        self.M = Value(c.c_float, mass, lock=False)
+        self.R = Array(c.c_float, 3*(self.N+1))
+        self.V = Array(c.c_float, 3*(self.N+1))
+        self.A = Array(c.c_float, 3*(self.N+1))
+        arrR = np.frombuffer(self.R.get_obj()) # mp_arr and arr share the same memory
+        self.bR = arrR.reshape((3, self.N+1)) # b and arr share the same memory
+        self.bR[0,0] = RxInit
+        self.bR[1,0] = RyInit
+        arrV = np.frombuffer(self.V.get_obj()) # mp_arr and arr share the same memory
+        self.bV = arrV.reshape((3, self.N+1)) # b and arr share the same memory
+        self.bV[0,0] = VxInit
+        self.bV[1,0] = VyInit
+        arrA = np.frombuffer(self.A.get_obj()) # mp_arr and arr share the same memory
+        self.bA = arrA.reshape((3, self.N+1)) # b and arr share the same memory
+        self.bA[0,0] = AxInit
+        self.bA[1,0] = AyInit
+        #self.R = np.zeros(shape = (3, self.N+1))
+        #self.V = np.zeros(shape = (3, self.N+1))
+        #self.A = np.zeros(shape = (3, self.N+1))
+        #self.R[0,0] = RxInit
+        #self.R[1,0] = RyInit
+        #self.V[0,0] = VxInit
+        #self.V[1,0] = VyInit
+        #self.A[0,0] = AxInit
+        #self.A[1,0] = AyInit
         self.Interactions = interactions
 
 class Verlet:
@@ -660,6 +716,79 @@ class VerletThreads:
         #t2.start()
         #t1.join()
         #t2.join()
+
+class VerletMultiProcessing:
+    def __init__(self, Num, Dt, objects):
+        self.N = Num
+        self.dt = Dt
+        self.G = 6.67408 * (10**(-11))
+        self.Objects = objects
+
+    def Acceleration(self, coordFirst, coordSecond, mass):
+        if (np.linalg.norm(coordSecond - coordFirst) < 0.0000001):
+            return 0
+        return self.G*mass*(coordSecond - coordFirst)/(np.linalg.norm(coordSecond - coordFirst)**3)
+
+    def VerletStep(self, R, V, A, pipeS, pipeR, kwargs):
+        arrR = np.frombuffer(R.get_obj())
+        bR = arrR.reshape((3, self.N+1)) 
+        arrV = np.frombuffer(V.get_obj())
+        VR = arrV.reshape((3, self.N+1)) 
+        arrA = np.frombuffer(A.get_obj())
+        bA = arrA.reshape((3, self.N+1)) 
+        kwNp = []
+        for (mass, r) in kwargs:
+            arrr = np.frombuffer(r.get_obj())
+            br = arrr.reshape((3, self.N+1)) 
+            kwNp.append((mass, br))
+        for i in range(self.N):
+            for (mass, r) in kwNp:
+                bA[:, i] += self.Acceleration(bR[:, i], r[:, i], mass)
+            bR[:, i+1] = bR[:, i] + bV[:, i]*self.dt + (bA[:, i]*(self.dt**2)*0.5)
+            bV[:, i+1] = bV[:, i] + bA[:, i]*self.dt
+            print('before send child')
+            pipeS.send(0)
+            print('after send child')
+            pipeR.recv()
+            print('after recv child')
+            print(i)
+            
+        pipeS.send(1)
+
+    def MainThreadOperation(self, pipesR, pipesS):
+        for i in range(self.N):
+            print("Main1")
+            for pipe in pipesR:
+                pipe.recv()
+            print("Main2")
+            for pipe in pipesS:
+                pipe.send(0)
+            print("Main3")
+
+    def VerletMain(self):
+        pipesRecv = []
+        pipesSend = []
+        processes = []
+        procMain = Process(target = self.MainThreadOperation, args = (pipesRecv, pipesSend))
+
+        for obj in self.Objects:
+            #interactions = []
+            #for interactionObj in self.Objects:
+            #    if (not interactionObj is obj):
+            #       interactions.append((interactionObj.M, interactionObj.R))
+            parentRecv, childSend = Pipe()
+            pipesRecv.append(parentRecv)
+            parentSend, childRecv = Pipe()
+            pipesSend.append(parentSend)
+            processes.append(Process(target = self.VerletStep, args = (obj.R, obj.V, obj.A, childSend, childRecv, obj.Interactions)))
+            print(-1)
+        for proc in processes:
+            proc.start()
+        procMain.start()
+        for proc in processes:
+            proc.join()
+        procMain.join()
+        print("AllJoined")
         
 if __name__ == '__main__':
     

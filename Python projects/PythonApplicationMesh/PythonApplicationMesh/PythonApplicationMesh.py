@@ -8,59 +8,45 @@ import ctypes
 import pyglet
 from pyglet.gl import *
 
+import pywavefront
+import numpy as np
+import random
+
 from pywavefront import Wavefront
 from OpenGL.GL import * 
 from OpenGL.GLU import * 
 from OpenGL.GLUT import * 
 
-rotation = 0
+global N
 
-meshes = Wavefront('earth.obj')
+lastx=0
+lasty=0
 
-window = pyglet.window.Window(1024, 720, caption = 'Demo', resizable = True)
+def MouseMotion (x, y):
+    global lastx, lasty
+    glTranslatef(-(x-lastx)/300,(y-lasty)/300,0)
+    lastx = x
+    lasty = y
+    glutPostRedisplay ()
 
-lightfv = ctypes.c_float * 4
-label = pyglet.text.Label('Hello, world', font_name = 'Times New Roman', font_size = 12, x = 800, y = 700, anchor_x = 'center', anchor_y = 'center')
-@window.event
-def on_resize(width, height):
-    glMatrixMode(GL_PROJECTION)
-    glLoadIdentity()
-    gluPerspective(40.0, float(width)/height, 1, 100.0)
-    glEnable(GL_DEPTH_TEST)
-    glMatrixMode(GL_MODELVIEW)
-    return True
+def MouseRotate (x, y):
+    global lastx, lasty, pointdata
+    glRotatef((x-lastx)/3,0,1,0)
+    glRotatef((y-lasty)/3,1,0,0)
+    lastx = x
+    lasty = y
+    glutPostRedisplay ()
+def specialkeys(key, x, y):
+    global pointcolor
+    if key == GLUT_KEY_UP:          
+        glRotatef(5, 1, 0, 0)       
+    if key == GLUT_KEY_DOWN:        
+        glRotatef(-5, 1, 0, 0)      
+    if key == GLUT_KEY_LEFT:        
+        glRotatef(5, 0, 1, 0)       
+    if key == GLUT_KEY_RIGHT:       
+        glRotatef(-5, 0, 1, 0)
 
-@window.event
-def on_draw():
-    window.clear()
-    glColorPointer(3, GL_FLOAT, 0, cubecolor)
-    glLoadIdentity()
-    glLightfv(GL_LIGHT0, GL_POSITION, lightfv(-40, 200, 100, 0.0))
-    glLightfv(GL_LIGHT0, GL_AMBIENT, lightfv(0.2, 0.2, 0.2, 1.0))
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, lightfv(0.5, 0.5, 0.5, 1.0))
-    glEnable(GL_LIGHT0)
-    glEnable(GL_LIGHTING)
-    glEnable(GL_COLOR_MATERIAL)
-    glEnable(GL_DEPTH_TEST)
-    glShadeModel(GL_SMOOTH)
-    glMatrixMode(GL_MODELVIEW)
-    # glTranslated(0, 4, -8)
- #    glRotatef(90, 0, 1, 0)
- #    glRotatef(-60, 0, 0, 1)
-   # Rotations for sphere on axis - useful
-    glTranslated(0, .8, -20)
-    glRotatef(-66.5, 0, 0, 1)
-    glRotatef(rotation, 1, 0, 0)
-    glRotatef(90, 0, 0, 1)
-    glRotatef(0, 0, 1, 0)
-    meshes.draw()
-def update(dt):
-    global rotation
-    rotation += 45 * dt
-    if rotation > 720: 
-       rotation = 0
-
-pyglet.clock.schedule(update)
 
 def create_shader(shader_type, source):
     # Создаем пустой объект шейдера
@@ -71,6 +57,43 @@ def create_shader(shader_type, source):
     glCompileShader(shader)
     # Возвращаем созданный шейдер
     return shader
+
+def draw():
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);                    
+    glEnableClientState(GL_VERTEX_ARRAY)            
+    glEnableClientState(GL_COLOR_ARRAY)            
+    glVertexPointer(3, GL_FLOAT, 0, pointdata)
+    glColorPointer(3, GL_FLOAT, 0, pointcolor)
+    glEnable(GL_DEPTH_TEST)
+    glDrawArrays(GL_TRIANGLES,0,3*N)
+    glDisableClientState(GL_VERTEX_ARRAY)           
+    glDisableClientState(GL_COLOR_ARRAY)            
+    glutSwapBuffers()     
+
+glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB)
+# Указываем начальный размер окна (ширина, высота)
+glutInitWindowSize(300, 300)
+# Указываем начальное
+# положение окна относительно левого верхнего угла экрана
+glutInitWindowPosition(50, 50)
+# Инициализация OpenGl
+glutInit(sys.argv)
+# Создаем окно с заголовком "Shaders!"
+glutCreateWindow(b"Shaders!")
+# Определяем процедуру, отвечающую за перерисовку
+glutDisplayFunc(draw)
+# Определяем процедуру, выполняющуюся при "простое" программы
+glutIdleFunc(draw)
+# Определяем процедуру, отвечающую за обработку клавиш
+glutSpecialFunc(specialkeys)
+glutPassiveMotionFunc(MouseMotion)
+glutMotionFunc(MouseRotate)
+# Задаем серый цвет для очистки экрана
+glClearColor(0.2, 0.2, 0.2, 1)
+#Enable depth test
+glEnable(GL_DEPTH_TEST)
+#Accept fragment if it closer to the camera than the former one
+glDepthFunc(GL_LESS)
 
 vertex = create_shader(GL_VERTEX_SHADER, """
 varying vec4 vertex_color;
@@ -83,7 +106,7 @@ varying vec4 vertex_color;
 fragment = create_shader(GL_FRAGMENT_SHADER, """
 varying vec4 vertex_color;
             void main() {
-                gl_FragColor = vertex_color + 0.5;
+                gl_FragColor = vertex_color;
 }""")
 # Создаем пустой объект шейдерной программы
 program = glCreateProgram()
@@ -96,43 +119,20 @@ glLinkProgram(program)
 # Сообщаем OpenGL о необходимости использовать данную шейдерну программу при отрисовке объектов
 glUseProgram(program)
 
-cubecolor = [
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [0, 1, 0],
-    [0, 1, 0],
-    [0, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [0, 1, 0],
-    [0, 1, 0],
-    [0, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1,  0,  0],
-    [1, 0, 0],
-    [1, 0, 0],
-    [1, 0, 0],
-    [1, 0, 0],
-    [1, 0, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    [1, 1, 0],
-    ]
-
-pyglet.app.run()
+name='earth.obj'
+meshes = pywavefront.Wavefront(name)
+ps=pywavefront.ObjParser(meshes,name)
+ps.read_file(name)
+pointdata2=ps.material.vertices
+N=len(pointdata2)//24
+pointdata=np.zeros((N,3,3))
+pointcolor=np.zeros((N,3,3))
+for i in range(0,N):
+    for j in range(0,3):
+        pointdata[i,j,0:3]=pointdata2[24*i+8*j+5:24*i+8*j+8]
+pointdata/=2*pointdata.max()
+for i in range(0,N//2):
+    mas=[random.random(), random.random(), random.random()]
+    pointcolor[2*i]=[mas, mas, mas]
+    pointcolor[2*i+1]=pointcolor[2*i]
+glutMainLoop()
