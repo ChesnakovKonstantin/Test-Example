@@ -494,7 +494,6 @@ class Example(QWidget):
             self.axEarth.clear()
             Tn = np.linspace(0, 4, 40000)
             ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, xSun, ySun, xEarth, yEarth, xMoon, yMoon)
-            self.canvasEarth.clear()
             self.canvasEarth.draw()
 
         if (self.r2.isChecked()):
@@ -530,7 +529,7 @@ class Example(QWidget):
             verlet.VerletMain()
             self.figureEarth.clear()
             Tn = np.linspace(0, 4, 4001)
-            ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, Sun.R[0, :], Sun.R[1, :], Earth.R[0, :], Earth.R[1, :], Moon.R[0, :], Moon.R[1, :])
+            ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, Sun.bR[0, :], Sun.bR[1, :], Earth.bR[0, :], Earth.bR[1, :], Moon.bR[0, :], Moon.bR[1, :])
             self.canvasEarth.draw()
 
             #verlet = VerletThreads(400000,120)
@@ -590,10 +589,10 @@ class Cosmic:
 class CosmicMulti:
     def __init__(self, n, mass, RxInit, RyInit, VxInit, VyInit, AxInit, AyInit, interactions):
         self.N = n
-        self.M = Value(c.c_float, mass, lock=False)
-        self.R = Array(c.c_float, 3*(self.N+1))
-        self.V = Array(c.c_float, 3*(self.N+1))
-        self.A = Array(c.c_float, 3*(self.N+1))
+        self.M = Value('d', mass, lock=False)
+        self.R = Array('d', 3*(self.N+1))
+        self.V = Array('d', 3*(self.N+1))
+        self.A = Array('d', 3*(self.N+1))
         arrR = np.frombuffer(self.R.get_obj()) # mp_arr and arr share the same memory
         self.bR = arrR.reshape((3, self.N+1)) # b and arr share the same memory
         self.bR[0,0] = RxInit
@@ -733,7 +732,7 @@ class VerletMultiProcessing:
         arrR = np.frombuffer(R.get_obj())
         bR = arrR.reshape((3, self.N+1)) 
         arrV = np.frombuffer(V.get_obj())
-        VR = arrV.reshape((3, self.N+1)) 
+        bV = arrV.reshape((3, self.N+1)) 
         arrA = np.frombuffer(A.get_obj())
         bA = arrA.reshape((3, self.N+1)) 
         kwNp = []
@@ -743,7 +742,7 @@ class VerletMultiProcessing:
             kwNp.append((mass, br))
         for i in range(self.N):
             for (mass, r) in kwNp:
-                bA[:, i] += self.Acceleration(bR[:, i], r[:, i], mass)
+                bA[:, i] += self.Acceleration(bR[:, i], r[:, i], mass.value)
             bR[:, i+1] = bR[:, i] + bV[:, i]*self.dt + (bA[:, i]*(self.dt**2)*0.5)
             bV[:, i+1] = bV[:, i] + bA[:, i]*self.dt
             print('before send child')
