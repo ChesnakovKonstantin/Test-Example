@@ -21,6 +21,10 @@ from multiprocessing.sharedctypes import Value, Array
 import ctypes as c
 from matplotlib.lines import Line2D
 import matplotlib.animation as animation
+import pyopencl as cl
+import pyopencl.cltypes
+import verlet as vrl
+from operator import attrgetter
 
 class SubplotAnimation(animation.TimedAnimation):
     def __init__(self, fig, ax1, tn, xSun, ySun, xEarth, yEarth, xMoon, yMoon):
@@ -456,25 +460,15 @@ class Example(QWidget):
                 for interactionObj in cosmics:
                     if (not interactionObj is obj):
                         obj.Interactions.append((interactionObj.M, interactionObj.R))
-            verlet = Verlet(N, dt, cosmics)
+            #verlet = Verlet(N, dt, cosmics)
+            #verlet.VerletMain()
+            verlet = VerletOpenCL(N, dt, cosmics)
             verlet.VerletMain()
             print("Verlet calculated")
             self.axEarth.clear()
             Tn = np.linspace(0, 4, 40001)
             ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, Sun.R[0, :], Sun.R[1, :], Earth.R[0, :], Earth.R[1, :], Moon.R[0, :], Moon.R[1, :])
             self.canvasEarth.draw()
-            #for i in range(len(Sun.R[0,:])):
-                 
-            #    #circleSun = MyCircle(Sun.R[0, i], Sun.R[1,i], 10**11, 'yellow')
-            #    #self.figureEarth.gca().add_patch(circleSun)
-            #    #self.canvasEarth.draw()
-
-            #    time.sleep(1)
-            #    self.axEarth.plot(Sun.R[0, i], Sun.R[1, i], color = 'yellow')
-            #    self.axEarth.plot(Earth.R[0, i], Earth.R[1, i], color = 'blue')
-            #    self.axEarth.plot(Moon.R[0, i], Moon.R[1, i], color = 'gray')
-            #    print(self.button_group.checkedId())
-            #    print(self.button_group.checkedButton().text())
                 
         
         if (self.r1.isChecked()):
@@ -788,6 +782,157 @@ class VerletMultiProcessing:
             proc.join()
         procMain.join()
         print("AllJoined")
+
+def get_default_device(use_gpu: bool = True) -> cl.Device:
+    platforms = cl.get_platforms()
+    gpu_devices = [plat.get_devices(cl.device_type.GPU) for plat in platforms]
+    gpu_devices = [dev for devices in gpu_devices for dev in devices]  # Flatten to 1d if multiple GPU devices exists
+    #use_gpu = False
+    if gpu_devices and use_gpu:
+        dev = max(gpu_devices, key=attrgetter('global_mem_size'))
+        print('Using GPU: {}'.format(dev.name))
+        print('On platform: {} ({})\n'.format(dev.platform.name, dev.platform.version.strip()))
+        return dev
+    else:
+        cpu_devices = [plat.get_devices(cl.device_type.CPU) for plat in platforms]
+        cpu_devices = [dev for devices in cpu_devices for dev in devices]
+        if cpu_devices:
+            dev = max(cpu_devices, key=attrgetter('global_mem_size'))
+            # print('Using CPU: {}'.format(dev.name))
+            # print('On platform: {} ({})\n'.format(dev.platform.name, dev.platform.version.strip()))
+            return dev
+        else:
+            raise RuntimeError('No suitable OpenCL GPU/CPU devices found')
+
+class VerletOpenCL:
+    def __init__(self, Num, Dt, objects):
+        self.N = Num
+        self.dt = Dt
+        self.G = 6.67408 * (10**(-11))
+        self.Objects = objects
+
+    def Acceleration(self, coordFirst, coordSecond, mass):
+        if (np.linalg.norm(coordSecond - coordFirst) < 0.0000001):
+            return 0
+        return self.G*mass*(coordSecond - coordFirst)/(np.linalg.norm(coordSecond - coordFirst)**3)
+
+    def VerletStep(self, R, V, A, i, kwargs):
+        for (mass, r) in kwargs:
+           A[:, i] += self.Acceleration(R[:, i], r[:, i], mass)
+        R[:, i+1] = R[:, i] + V[:, i]*self.dt + (A[:, i]*(self.dt**2)*0.5)
+        V[:, i+1] = V[:, i] + A[:, i]*self.dt
+
+    def VerletMain(self):
+        listR = []
+        listV = []
+        listA = []
+        listM = []
+        for obj in self.Objects:
+            listR.append(obj.R.flatten('F'))
+            listV.append(obj.V.flatten('F'))
+            listA.append(obj.A.flatten('F'))
+            listM.append(obj.M)
+        totalR = np.hstack(listR)
+        totalV = np.hstack(listV)
+        totalA = np.hstack(listA)
+
+        ctx = cl.create_some_context()
+        queue = cl.CommandQueue(ctx)
+        dev = get_default_device()
+
+        totalRcl = np.array(totalR, dtype = cl.cltypes.double)
+        print('totalRcl before:')
+        print(totalRcl)
+        totalVcl = np.array(totalV, dtype = cl.cltypes.double)
+        totalAcl = np.array(totalA, dtype = cl.cltypes.double)
+        Mscl = np.array(listM, dtype = cl.cltypes.double) 
+
+        dT = np.array(self.dt)
+        N = np.array(self.N)
+        M = np.array(len(self.Objects))
+
+        print(dT)
+        print(N)
+        print(M)
+
+        mf = cl.mem_flags
+        bufR = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=totalRcl)
+        bufV = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=totalVcl)
+        bufA = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=totalAcl)
+        bufMs = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=Mscl)
+        bufdt = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=dT)
+        bufM = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=M)
+        bufN = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=N)
+    
+        prg = cl.Program(ctx,
+                         """
+                         #pragma OPENCL EXTENSION cl_khr_fp64: enable
+                         double norm(__global double *R, int i, int j)
+                         {
+                             double temp=0;
+                             for (int k=0; k<3; k++)
+                                 temp+=(R[i+k]-R[j+k])*(R[i+k]-R[j+k]);
+                             return sqrt(temp);
+                         }
+                         
+                         __kernel void verlet_cl(__global double *R, __global double *V, __global double *A, __global double *Ms, __global double *dtP, __global int *MP , __global int *NP)
+                         {
+                             double G = 6.67e-11;
+                             double dT=*dtP;
+                             
+                             int M=*MP;
+                             int N=*NP; 
+                                                                 
+                             for (int i=0; i<N; i++)
+                             {
+                                 for (int j=0; j<M; j++)
+                                 {
+                                     for (int k=0; k<3; k++)
+                                     {
+                                        //printf(\"R : %1.4e\\n\",R[3*(N+1)*j+3*i+k]);
+                                        for (int l = 0; l < M; l++)
+                                        {
+                                            if (l != j)
+                                            {
+                                                A[3*(N+1)*j+3*i+k] += G*Ms[l]*(R[3*(N+1)*l+3*i+k]-R[3*(N+1)*j+3*i+k])/pow(norm(R,3*(N+1)*l+3*i,3*(N+1)*j+3*i),3);
+                                            }
+                                        }
+                                        R[3*(N+1)*j+3*(i+1)+k] = R[3*(N+1)*j+3*i+k] + V[3*(N+1)*j+3*i+k]*dT + (A[3*(N+1)*j+3*i+k]*dT*dT*0.5);
+                                        V[3*(N+1)*j+3*(i+1)+k] = V[3*(N+1)*j+3*i+k] + A[3*(N+1)*j+3*i+k]*dT;                               
+                                     }
+                                 }
+                             }
+                         }""").build()
+        #try:
+        #    prg.build()
+        #    print ('build')
+        #    except:
+        #        print("Error:")
+        #    #print(prg.get_build_info(ctx.devices[0], cl.program_build_info.LOG))
+        #    raise
+
+        #try:
+        #    prg.build(options=['-Werror'], devices=[dev], cache_dir=None)
+        ## try:
+        ## prg.build()
+
+        ## prog.build(options=['-Werror'], devices=[dev], cache_dir=None)
+        #except:
+        ## print("Error:")
+        ## print(prog.get_build_info(context.devices[0], cl.program_build_info.LOG))
+        #    print('Build log:')
+        #    print(prg.get_build_info(dev, cl.program_build_info.LOG))
+        #raise
+
+        t = time.time()
+
+        prg.verlet_cl(queue, (1,), None, bufR, bufV, bufA, bufMs, bufdt, bufM, bufN)
+        cl.enqueue_read_buffer(queue, bufR, totalRcl).wait()
+        cl.enqueue_read_buffer(queue, bufV, totalVcl).wait()
+        cl.enqueue_read_buffer(queue, bufA, totalAcl).wait()
+
+        print('totalRcl after:')
+        print(totalRcl)
         
 if __name__ == '__main__':
     
