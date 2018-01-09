@@ -24,6 +24,7 @@ import matplotlib.animation as animation
 import pyopencl as cl
 import pyopencl.cltypes
 import verlet as vrl
+import random
 from operator import attrgetter
 
 class SubplotAnimation(animation.TimedAnimation):
@@ -205,6 +206,8 @@ class Example(QWidget):
         self.button_group.addButton(self.r2)
         self.r3 = QtWidgets.QRadioButton("multiprocessing")
         self.button_group.addButton(self.r3)
+        self.r4 = QtWidgets.QRadioButton("compare all")
+        self.button_group.addButton(self.r4)
         self.button_group.buttonClicked.connect(self.RadioButtonClicked)
 
         self.ax = self.figure.add_subplot(111)  # create an axis
@@ -284,6 +287,7 @@ class Example(QWidget):
         self.tab2.layout.addWidget(self.r1)
         self.tab2.layout.addWidget(self.r2)
         self.tab2.layout.addWidget(self.r3)
+        self.tab2.layout.addWidget(self.r4)
         self.tab2.layout.addWidget(self.canvasEarth)
         self.tab2.setLayout(self.tab2.layout)
 
@@ -509,7 +513,7 @@ class Example(QWidget):
             self.canvasEarth.draw()
 
         if (self.r3.isChecked()):
-            N = 4000
+            N = 40000
             dt = 1200
             Earth = CosmicMulti(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
             Moon = CosmicMulti(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
@@ -521,10 +525,16 @@ class Example(QWidget):
                         obj.Interactions.append((interactionObj.M, interactionObj.R))
             verlet = VerletMultiProcessing(N, dt, cosmics)
             verlet.VerletMain()
+            print("Verlet calculated")
             self.figureEarth.clear()
-            Tn = np.linspace(0, 4, 4001)
+            Tn = np.linspace(0, 4, 40001)
             ani = SubplotAnimation(self.figureEarth, self.axEarth, Tn, Sun.bR[0, :], Sun.bR[1, :], Earth.bR[0, :], Earth.bR[1, :], Moon.bR[0, :], Moon.bR[1, :])
             self.canvasEarth.draw()
+
+        if (self.r4.isChecked()):
+            #TimesAll()
+
+            TimesAllKBodies(50)
 
             #verlet = VerletThreads(400000,120)
             #verlet.REarth[0,0] = 0
@@ -629,6 +639,7 @@ class Verlet:
         V[:, i+1] = V[:, i] + A[:, i]*self.dt
 
     def VerletMain(self):
+        t = time.time()
         for i in range(self.N):
             for obj in self.Objects:
                 interactions = []
@@ -636,6 +647,7 @@ class Verlet:
                 #    if (not interactionObj is obj):
                 #        interactions.append((interactionObj.M, interactionObj.R))
                 self.VerletStep(obj.R, obj.V, obj.A, i, obj.Interactions)
+        return t - time.time()
 
 class VerletThreads:
     def __init__(self, Num, Dt, objects):
@@ -672,6 +684,7 @@ class VerletThreads:
             #print("Main3")
 
     def VerletMain(self):
+        t = time.time()
         eventMy = []
         eventTheir = []
         threads = []
@@ -697,18 +710,7 @@ class VerletThreads:
             thrd.join()
         threadMain.join()
         print("AllJoined")
-
-
-        #event12 = threading.Event()
-        #event12.clear()
-        #event21 = threading.Event()
-        #event21.clear()
-        #t1 = threading.Thread(name = "first", target = self.VerletStep, args = (self.REarth, self.VEarth, self.AEarth, 1, event12, event21, {self.mSun : self.RSun, self.mMoon : self.RMoon}))
-        #t2 = threading.Thread(name = "second", target = self.VerletStep, args = (self.RMoon, self.VMoon, self.AMoon, 2, event21, event12, {self.mSun : self.RSun, self.mEarth : self.REarth}))
-        #t1.start()
-        #t2.start()
-        #t1.join()
-        #t2.join()
+        return t - time.time()
 
 class VerletMultiProcessing:
     def __init__(self, Num, Dt, objects):
@@ -739,26 +741,27 @@ class VerletMultiProcessing:
                 bA[:, i] += self.Acceleration(bR[:, i], r[:, i], mass.value)
             bR[:, i+1] = bR[:, i] + bV[:, i]*self.dt + (bA[:, i]*(self.dt**2)*0.5)
             bV[:, i+1] = bV[:, i] + bA[:, i]*self.dt
-            print('before send child')
+            #print('before send child')
             pipeS.send(0)
-            print('after send child')
+            #print('after send child')
             pipeR.recv()
-            print('after recv child')
-            print(i)
+            #print('after recv child')
+            #print(i)
             
         pipeS.send(1)
 
     def MainThreadOperation(self, pipesR, pipesS):
         for i in range(self.N):
-            print("Main1")
+            #print("Main1")
             for pipe in pipesR:
                 pipe.recv()
-            print("Main2")
+            #print("Main2")
             for pipe in pipesS:
                 pipe.send(0)
-            print("Main3")
+            #print("Main3")
 
     def VerletMain(self):
+        print('multi')
         pipesRecv = []
         pipesSend = []
         processes = []
@@ -782,27 +785,6 @@ class VerletMultiProcessing:
             proc.join()
         procMain.join()
         print("AllJoined")
-
-def get_default_device(use_gpu: bool = True) -> cl.Device:
-    platforms = cl.get_platforms()
-    gpu_devices = [plat.get_devices(cl.device_type.GPU) for plat in platforms]
-    gpu_devices = [dev for devices in gpu_devices for dev in devices]  # Flatten to 1d if multiple GPU devices exists
-    #use_gpu = False
-    if gpu_devices and use_gpu:
-        dev = max(gpu_devices, key=attrgetter('global_mem_size'))
-        print('Using GPU: {}'.format(dev.name))
-        print('On platform: {} ({})\n'.format(dev.platform.name, dev.platform.version.strip()))
-        return dev
-    else:
-        cpu_devices = [plat.get_devices(cl.device_type.CPU) for plat in platforms]
-        cpu_devices = [dev for devices in cpu_devices for dev in devices]
-        if cpu_devices:
-            dev = max(cpu_devices, key=attrgetter('global_mem_size'))
-            # print('Using CPU: {}'.format(dev.name))
-            # print('On platform: {} ({})\n'.format(dev.platform.name, dev.platform.version.strip()))
-            return dev
-        else:
-            raise RuntimeError('No suitable OpenCL GPU/CPU devices found')
 
 class VerletOpenCL:
     def __init__(self, Num, Dt, objects):
@@ -836,13 +818,15 @@ class VerletOpenCL:
         totalV = np.hstack(listV)
         totalA = np.hstack(listA)
 
+        t = time.time()
+
         ctx = cl.create_some_context()
         queue = cl.CommandQueue(ctx)
-        dev = get_default_device()
+        #dev = get_default_device()
 
         totalRcl = np.array(totalR, dtype = cl.cltypes.double)
         print('totalRcl before:')
-        print(totalRcl)
+        #print(totalRcl)
         totalVcl = np.array(totalV, dtype = cl.cltypes.double)
         totalAcl = np.array(totalA, dtype = cl.cltypes.double)
         Mscl = np.array(listM, dtype = cl.cltypes.double) 
@@ -851,9 +835,9 @@ class VerletOpenCL:
         N = np.array(self.N)
         M = np.array(len(self.Objects))
 
-        print(dT)
-        print(N)
-        print(M)
+        #print(dT)
+        #print(N)
+        #print(M)
 
         mf = cl.mem_flags
         bufR = cl.Buffer(ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=totalRcl)
@@ -875,11 +859,11 @@ class VerletOpenCL:
                              return sqrt(temp);
                          }
                          
-                         __kernel void verlet_cl(__global double *R, __global double *V, __global double *A, __global double *Ms, __global double *dtP, __global int *MP , __global int *NP)
+                         __kernel void verlet_cl(__global double *R, __global double *V, __global double *A, __global double *Ms, __global int *dtP, __global int *MP , __global int *NP)
                          {
                              double G = 6.67e-11;
-                             double dT=*dtP;
-                             
+                             int dT=*dtP;
+                             printf(\"dT : %d\\n\",dT);
                              int M=*MP;
                              int N=*NP; 
                                                                  
@@ -894,7 +878,14 @@ class VerletOpenCL:
                                         {
                                             if (l != j)
                                             {
-                                                A[3*(N+1)*j+3*i+k] += G*Ms[l]*(R[3*(N+1)*l+3*i+k]-R[3*(N+1)*j+3*i+k])/pow(norm(R,3*(N+1)*l+3*i,3*(N+1)*j+3*i),3);
+                                                if (norm(R,3*(N+1)*l+3*i,3*(N+1)*j+3*i) <= 0.00000001)
+                                                {
+                                                   A[3*(N+1)*j+3*i+k] = 0;
+                                                }
+                                                else
+                                                {
+                                                   A[3*(N+1)*j+3*i+k] += G*Ms[l]*(R[3*(N+1)*l+3*i+k]-R[3*(N+1)*j+3*i+k])/pow(norm(R,3*(N+1)*l+3*i,3*(N+1)*j+3*i),3);
+                                                }
                                             }
                                         }
                                         R[3*(N+1)*j+3*(i+1)+k] = R[3*(N+1)*j+3*i+k] + V[3*(N+1)*j+3*i+k]*dT + (A[3*(N+1)*j+3*i+k]*dT*dT*0.5);
@@ -931,8 +922,253 @@ class VerletOpenCL:
         cl.enqueue_read_buffer(queue, bufV, totalVcl).wait()
         cl.enqueue_read_buffer(queue, bufA, totalAcl).wait()
 
+
         print('totalRcl after:')
-        print(totalRcl)
+        #print(totalRcl)
+        listRAfter = np.split(totalRcl, (self.N+1)*len(self.Objects))
+        #print(listRAfter)
+
+        for i in range(len(self.Objects)):
+            sublistR = listRAfter[i*(self.N+1):(i+1)*(self.N+1)]
+            self.Objects[i].R = np.array(sublistR).transpose()
+        return t - time.time()
+
+def TimesAll():
+    print('Methods:')
+    print('1. Verlet')
+    print('2. SciPy')
+    print('3. Threading')
+    print('4. MultiProcessing')
+    print('5. Cython without TM without OMP')
+    print('6. Cython with TM without OMP')
+    print('7. Cython without TM with OMP')
+    print('8. Cython with TM with OMP')
+    print('9. OpenCL')
+
+    listTimes = []
+    
+    MEarth = 5.9724 * (10**24)
+    MMoon = 7.34767309 * (10**22)
+    MSun = 1988500 * (10**24)
+        
+    N = 40000
+    dt = 1200
+    #Tn = np.linspace(0, 40*1200, 40)
+    Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
+    Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
+    Sun = Cosmic(N, MSun, 0, 0, 0, 0, 0, 0, [])
+    cosmics = [Sun, Earth, Moon]
+    for obj in cosmics:
+        for interactionObj in cosmics:
+            if (not interactionObj is obj):
+                obj.Interactions.append((interactionObj.M, interactionObj.R))
+    verlet = Verlet(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    p = [6.67408 * (10**(-11)), 1988500 * (10**24), 5.9724 * (10**24), 7.34767309 * (10**22)]
+    w0 = [0, 0, 0, 0, 0, 0, 
+            0, 29.783*(10**3), -1.496*(10**11), 0, 0, 0,
+            0, 29.783*(10**3) + 1022, -1.496*(10**11) - 384.467*(10**6), 0, 0, 0]
+    t = [1200*float(i) for i in range(40000)]
+    t1 = time.time()
+    wsol = odeint(vectorfield, w0, t, args=(p,))
+    listTimes.append(time.time() - t1)
+
+    verlet = VerletThreads(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    Earth = CosmicMulti(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
+    Moon = CosmicMulti(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
+    Sun = CosmicMulti(N, MSun, 0, 0, 0, 0, 0, 0, [])
+    cosmics = [Sun, Earth, Moon]
+    for obj in cosmics:
+        for interactionObj in cosmics:
+            if (not interactionObj is obj):
+                obj.Interactions.append((interactionObj.M, interactionObj.R))
+    verlet = VerletMultiProcessing(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
+    Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
+    Sun = Cosmic(N, MSun, 0, 0, 0, 0, 0, 0, [])
+    cosmics = [Sun, Earth, Moon]
+    for obj in cosmics:
+        for interactionObj in cosmics:
+            if (not interactionObj is obj):
+                obj.Interactions.append((interactionObj.M, interactionObj.R))
+    verlet = vrl.Verlet(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    verlet = vrl.VerletTM(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    verlet = vrl.VerletOpenMP(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    verlet = vrl.VerletOpenMPTM(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    verlet = VerletOpenCL(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+    print("Verlet calculated")
+
+    minT = min(listTimes)
+    minPos = listTimes.index(min(listTimes))
+
+    maxT = max(listTimes)
+    maxPos = listTimes.index(max(listTimes))
+
+    listAcc = []
+    for val in listTimes:
+        listAcc.append(val/maxT)
+
+    print('Min is ', minPos+1)
+    print('Max is ', maxPos+1)
+    print('Times:')
+    for i in range(len(listTimes)):
+        print(i+1, ': ', listTimes[i])
+
+    print('Accelerations:')
+    for i in range(len(listAcc)):
+        print(i+1, ': ', listAcc[i])
+
+
+def TimesAllKBodies(K):
+    print('Methods:')
+    print('1. Verlet')
+    print('2. Threading')
+    print('3. Cython without TM without OMP')
+    print('4. Cython with TM without OMP')
+    print('5. Cython without TM with OMP')
+    print('6. Cython with TM with OMP')
+    print('7. OpenCL')
+
+    listTimes = []
+    
+    MEarth = 5.9724 * (10**24)
+    MMoon = 7.34767309 * (10**22)
+    MSun = 1988500 * (10**24)
+
+    listMasses = []
+    for b in range(K-3):
+        listMasses.append(random.randrange(pow(10, 3),pow(10, 4)))
+        
+    N = 40000
+    dt = 1200
+    #Tn = np.linspace(0, 40*1200, 40)
+    Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
+    Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
+    Sun = Cosmic(N, MSun, 0, 0, 0, 0, 0, 0, [])
+    cosmics = [Sun, Earth, Moon]
+
+    for mass in listMasses:
+        cosmics.append(Cosmic(N, mass, 0, 0, 0, 0, 0, 0, []))
+
+    for obj in cosmics:
+        for interactionObj in cosmics:
+            if (not interactionObj is obj):
+                obj.Interactions.append((interactionObj.M, interactionObj.R))
+    verlet = Verlet(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    verlet = VerletThreads(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    #Earth = CosmicMulti(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
+    #Moon = CosmicMulti(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
+    #Sun = CosmicMulti(N, MSun, 0, 0, 0, 0, 0, 0, [])
+    #cosmics = [Sun, Earth, Moon]
+
+    #for mass in listMasses:
+    #    cosmics.append(CosmicMulti(N, mass, 0, 0, 0, 0, 0, 0, []))
+
+    #for obj in cosmics:
+    #    for interactionObj in cosmics:
+    #        if (not interactionObj is obj):
+    #            obj.Interactions.append((interactionObj.M, interactionObj.R))
+    #verlet = VerletMultiProcessing(N, dt, cosmics)
+    #t1 = time.time()
+    #verlet.VerletMain()
+    #listTimes.append(time.time() - t1)
+
+    #Earth = Cosmic(N, MEarth, 0, -1.496*(10**11), 29.783*(10**3), 0, 0, 0, [])
+    #Moon = Cosmic(N, MMoon, 0, -1.496*(10**11) - 384.467*(10**6), 29.783*(10**3) + 1022, 0, 0, 0, [])
+    #Sun = Cosmic(N, MSun, 0, 0, 0, 0, 0, 0, [])
+    #cosmics = [Sun, Earth, Moon]
+
+    #for mass in listMasses:
+    #    cosmics.append(Cosmic(N, mass, 0, 0, 0, 0, 0, 0, []))
+
+    #for obj in cosmics:
+    #    for interactionObj in cosmics:
+    #        if (not interactionObj is obj):
+    #            obj.Interactions.append((interactionObj.M, interactionObj.R))
+    verlet = vrl.Verlet(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    verlet = vrl.VerletTM(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    verlet = vrl.VerletOpenMP(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    verlet = vrl.VerletOpenMPTM(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+
+    verlet = VerletOpenCL(N, dt, cosmics)
+    t1 = time.time()
+    verlet.VerletMain()
+    listTimes.append(time.time() - t1)
+    print("Verlet calculated")
+
+    minT = min(listTimes)
+    minPos = listTimes.index(min(listTimes))
+
+    maxT = max(listTimes)
+    maxPos = listTimes.index(max(listTimes))
+
+    listAcc = []
+    for val in listTimes:
+        listAcc.append(val/maxT)
+
+    print('Min is ', minPos+1)
+    print('Max is ', maxPos+1)
+    print('Times:')
+    for i in range(len(listTimes)):
+        print(i+1, ': ', listTimes[i])
+
+    print('Accelerations:')
+    for i in range(len(listAcc)):
+        print(i+1, ': ', listAcc[i])
+
         
 if __name__ == '__main__':
     
